@@ -86,14 +86,15 @@ export function PWAInstallButton() {
     );
   }
 
-  if (canInstall) {
-    return (
-      <Button onClick={install} className="w-full gap-2">
-        <Download className="h-4 w-4" />
-        Install MediLog App
-      </Button>
-    );
-  }
-
-  return null;
+  return (
+    <Button
+      onClick={canInstall ? install : undefined}
+      variant={canInstall ? "default" : "outline"}
+      className="w-full gap-2"
+      disabled={!canInstall}
+    >
+      <Download className="h-4 w-4" />
+      {canInstall ? "Install MediLog App" : "Install MediLog App"}
+    </Button>
+  );
 }

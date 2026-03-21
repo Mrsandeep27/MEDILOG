@@ -7,6 +7,15 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+// Capture the event globally before any component mounts
+let deferredPrompt: BeforeInstallPromptEvent | null = null;
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeinstallprompt", (e: Event) => {
+    e.preventDefault();
+    deferredPrompt = e as BeforeInstallPromptEvent;
+  });
+}
+
 export function usePWAInstall() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -21,41 +30,53 @@ export function usePWAInstall() {
 
     // Check iOS
     const ua = navigator.userAgent;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const isIOSDevice = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
     setIsIOS(isIOSDevice);
 
-    // Listen for install prompt (Chrome/Edge/Android)
+    // Use the globally captured prompt if available
+    if (deferredPrompt) {
+      setInstallPrompt(deferredPrompt);
+    }
+
+    // Listen for future install prompts
     const handler = (e: Event) => {
       e.preventDefault();
+      deferredPrompt = e as BeforeInstallPromptEvent;
       setInstallPrompt(e as BeforeInstallPromptEvent);
     };
 
     window.addEventListener("beforeinstallprompt", handler);
 
     // Listen for successful install
-    window.addEventListener("appinstalled", () => {
+    const installedHandler = () => {
       setIsInstalled(true);
       setInstallPrompt(null);
-    });
+      deferredPrompt = null;
+    };
+    window.addEventListener("appinstalled", installedHandler);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", installedHandler);
     };
   }, []);
 
   const install = async () => {
-    if (!installPrompt) return false;
-    await installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
+    const prompt = installPrompt || deferredPrompt;
+    if (!prompt) return false;
+    await prompt.prompt();
+    const { outcome } = await prompt.userChoice;
     if (outcome === "accepted") {
       setIsInstalled(true);
       setInstallPrompt(null);
+      deferredPrompt = null;
     }
     return outcome === "accepted";
   };
 
   return {
-    canInstall: !!installPrompt,
+    canInstall: !!installPrompt || !!deferredPrompt,
     isInstalled,
     isIOS,
     install,
