@@ -19,7 +19,7 @@ export default function AddRecordPage() {
     try {
       await addRecord(data, images);
       toast.success("Record added successfully");
-      router.back();
+      router.push("/records");
     } catch (err) {
       toast.error("Failed to add record");
       console.error(err);

@@ -13,10 +13,6 @@ export function useRecords(memberId?: string) {
   const records = useLiveQuery(
     () => {
       if (!user) return [];
-      let query = db.records.where("is_deleted").equals(0);
-      if (memberId) {
-        query = db.records.where({ member_id: memberId, is_deleted: false });
-      }
       return db.records
         .filter((r) => !r.is_deleted && (memberId ? r.member_id === memberId : true))
         .toArray()
@@ -37,13 +33,11 @@ export function useRecords(memberId?: string) {
     const now = new Date().toISOString();
 
     const imageBlobs: Blob[] = [];
-    const imageUrls: string[] = [];
 
     if (images && images.length > 0) {
       for (const img of images) {
         const compressed = await compressImage(img);
         imageBlobs.push(compressed);
-        imageUrls.push(URL.createObjectURL(compressed));
       }
     }
 
@@ -57,7 +51,7 @@ export function useRecords(memberId?: string) {
       visit_date: data.visit_date,
       diagnosis: data.diagnosis,
       notes: data.notes,
-      image_urls: imageUrls,
+      image_urls: [],
       local_image_blobs: imageBlobs,
       tags: data.tags,
       created_at: now,
@@ -91,10 +85,6 @@ export function useRecords(memberId?: string) {
         ...(existing.local_image_blobs || []),
         ...newBlobs,
       ];
-      updateData.image_urls = [
-        ...existing.image_urls,
-        ...newBlobs.map((b) => URL.createObjectURL(b)),
-      ];
     }
 
     await db.records.update(id, updateData);
@@ -119,7 +109,7 @@ export function useRecords(memberId?: string) {
             (r.hospital_name?.toLowerCase().includes(q) ?? false) ||
             (r.diagnosis?.toLowerCase().includes(q) ?? false) ||
             (r.notes?.toLowerCase().includes(q) ?? false) ||
-            r.tags.some((t) => t.toLowerCase().includes(q)))
+            (r.tags?.some((t) => t.toLowerCase().includes(q)) ?? false))
       )
       .toArray();
   };
@@ -139,14 +129,33 @@ export function useRecord(id: string) {
   return { record, isLoading: record === undefined };
 }
 
+/** Get blob URLs on-demand from local_image_blobs (survives page reload) */
+export function getRecordImageUrls(record: HealthRecord): string[] {
+  if (record.local_image_blobs && record.local_image_blobs.length > 0) {
+    return record.local_image_blobs.map((blob) => URL.createObjectURL(blob));
+  }
+  return record.image_urls || [];
+}
+
 async function compressImage(file: File | Blob, maxSizeKB = 500): Promise<Blob> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to load image. The file may be corrupt or not an image."));
+    };
+
     img.onload = () => {
       URL.revokeObjectURL(url);
       const canvas = document.createElement("canvas");
       let { width, height } = img;
+
+      if (width === 0 || height === 0) {
+        resolve(new Blob());
+        return;
+      }
 
       const MAX_DIM = 1920;
       if (width > MAX_DIM || height > MAX_DIM) {
@@ -157,7 +166,11 @@ async function compressImage(file: File | Blob, maxSizeKB = 500): Promise<Blob> 
 
       canvas.width = width;
       canvas.height = height;
-      const ctx = canvas.getContext("2d")!;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file instanceof Blob ? file : new Blob());
+        return;
+      }
       ctx.drawImage(img, 0, 0, width, height);
 
       let quality = 0.8;

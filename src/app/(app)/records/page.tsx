@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, FileText, Search, Filter } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, FileText, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import { RECORD_TYPE_LABELS } from "@/constants/config";
 import type { RecordType } from "@/lib/db/schema";
 
 export default function RecordsPage() {
+  const router = useRouter();
   const { selectedMemberId } = useFamilyStore();
   const { records, isLoading, searchRecords } = useRecords(selectedMemberId || undefined);
   const { members } = useMembers();
@@ -103,7 +105,7 @@ export default function RecordsPage() {
             }
             actionLabel={search ? undefined : "Add Record"}
             onAction={
-              search ? undefined : () => (window.location.href = "/records/add")
+              search ? undefined : () => router.push("/records/add")
             }
           />
         ) : (

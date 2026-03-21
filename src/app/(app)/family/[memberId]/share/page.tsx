@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import { toast } from "sonner";
 import { Share2, Copy, Clock, Link2, QrCode } from "lucide-react";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,8 +66,7 @@ export default function SharePage({
 
   const copyLink = (token: string) => {
     const url = `${window.location.origin}/share/${token}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Link copied to clipboard");
+    copyToClipboard(url);
   };
 
   const activeLinks = shareLinks.filter(
@@ -129,10 +129,7 @@ export default function SharePage({
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={() => {
-                      navigator.clipboard.writeText(qrUrl);
-                      toast.success("Link copied");
-                    }}
+                    onClick={() => copyToClipboard(qrUrl)}
                   >
                     <Copy className="h-4 w-4 mr-1" />
                     Copy Link

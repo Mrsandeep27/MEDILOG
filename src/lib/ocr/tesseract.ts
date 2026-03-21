@@ -3,18 +3,19 @@
 import { createWorker, type Worker } from "tesseract.js";
 
 let worker: Worker | null = null;
+let workerInitPromise: Promise<Worker> | null = null;
 
 async function getWorker(): Promise<Worker> {
-  if (!worker) {
-    worker = await createWorker("eng+hin", undefined, {
-      logger: (m) => {
-        if (m.status === "recognizing text") {
-          // Progress can be tracked via m.progress (0..1)
-        }
-      },
-    });
-  }
-  return worker;
+  if (worker) return worker;
+  if (workerInitPromise) return workerInitPromise;
+
+  workerInitPromise = createWorker("eng+hin").then((w) => {
+    worker = w;
+    workerInitPromise = null;
+    return w;
+  });
+
+  return workerInitPromise;
 }
 
 export interface OCRResult {
@@ -36,7 +37,9 @@ export async function extractText(
   }
 
   try {
+    onProgress?.(10);
     const result = await w.recognize(source);
+    onProgress?.(100);
     return {
       text: result.data.text,
       confidence: result.data.confidence,

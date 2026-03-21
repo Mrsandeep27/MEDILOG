@@ -1,7 +1,8 @@
 "use client";
 
 import { toast } from "sonner";
-import { Share2, Copy, Clock, Trash2 } from "lucide-react";
+import { Share2, Copy, Clock, Trash2, Ban } from "lucide-react";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -84,12 +85,11 @@ export default function SharedLinksPage() {
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8"
-                          onClick={() => {
-                            navigator.clipboard.writeText(
+                          onClick={() =>
+                            copyToClipboard(
                               `${window.location.origin}/share/${link.token}`
-                            );
-                            toast.success("Link copied");
-                          }}
+                            )
+                          }
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
@@ -104,7 +104,7 @@ export default function SharedLinksPage() {
                             toast.success("Link revoked");
                           }}
                         >
-                          <Share2 className="h-4 w-4" />
+                          <Ban className="h-4 w-4" />
                         </Button>
                       )}
                       <Button

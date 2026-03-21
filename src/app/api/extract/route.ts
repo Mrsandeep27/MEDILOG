@@ -1,11 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+const EXTRACTION_PROMPT = `You are a medical prescription parser for Indian prescriptions. Extract structured data from the OCR text below.
+
+Return JSON in this exact format (no markdown, no code blocks, just raw JSON):
+{
+  "doctor_name": "string or null",
+  "hospital_name": "string or null",
+  "visit_date": "YYYY-MM-DD or null",
+  "diagnosis": "string or null",
+  "medicines": [
+    {
+      "name": "medicine name",
+      "dosage": "e.g. 500mg, 10ml",
+      "frequency": "once_daily|twice_daily|thrice_daily|weekly|as_needed|custom",
+      "duration": "e.g. 5 days, 2 weeks",
+      "before_food": true/false
+    }
+  ],
+  "notes": "any other important notes from the prescription"
+}
+
+Rules:
+- Extract ALL medicines mentioned
+- For frequency mapping: OD/QD = once_daily, BD/BID = twice_daily, TDS/TID = thrice_daily
+- "before food" / "empty stomach" / "AC" = before_food: true
+- "after food" / "PC" = before_food: false (default)
+- Parse Hindi/Hinglish text too (common in Indian prescriptions)
+- If a field is not found, use null
+- Dates in DD/MM/YYYY should be converted to YYYY-MM-DD`;
 
 export async function POST(request: NextRequest) {
   try {
-    const { text, prompt } = await request.json();
+    // Auth check
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { text } = await request.json();
 
     if (!text) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
+    }
+
+    // Input size limit (10K chars max)
+    if (typeof text !== "string" || text.length > 10000) {
+      return NextResponse.json(
+        { error: "Text too long (max 10,000 characters)" },
+        { status: 400 }
+      );
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -29,15 +74,14 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "user",
-            content: `${prompt}\n\nOCR Text:\n${text}`,
+            content: `${EXTRACTION_PROMPT}\n\nOCR Text:\n${text}`,
           },
         ],
       }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Claude API error:", errorText);
+      console.error("Claude API error: status", response.status);
       return NextResponse.json(
         { error: "AI extraction failed" },
         { status: 500 }
@@ -47,18 +91,23 @@ export async function POST(request: NextRequest) {
     const result = await response.json();
     const content = result.content?.[0]?.text || "{}";
 
-    // Parse JSON from response (handle potential markdown wrapping)
+    // Extract JSON robustly — find first { and last }
     let parsed;
     try {
-      const jsonStr = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      parsed = JSON.parse(jsonStr);
+      const firstBrace = content.indexOf("{");
+      const lastBrace = content.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        parsed = JSON.parse(content.substring(firstBrace, lastBrace + 1));
+      } else {
+        parsed = { medicines: [], notes: content };
+      }
     } catch {
       parsed = { medicines: [], notes: content };
     }
 
     return NextResponse.json(parsed);
   } catch (err) {
-    console.error("Extract API error:", err);
+    console.error("Extract API error:", err instanceof Error ? err.message : String(err));
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

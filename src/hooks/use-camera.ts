@@ -56,37 +56,6 @@ export function useCamera(options: UseCameraOptions = {}) {
     setIsActive(false);
   }, []);
 
-  const capture = useCallback((): Blob | null => {
-    if (!videoRef.current || !isActive) return null;
-
-    const canvas = document.createElement("canvas");
-    const video = videoRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(video, 0, 0);
-
-    let blob: Blob | null = null;
-    canvas.toBlob(
-      (b) => {
-        blob = b;
-      },
-      "image/jpeg",
-      0.9
-    );
-
-    // Synchronous fallback using dataURL
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-    const arr = dataUrl.split(",");
-    const mime = arr[0].match(/:(.*?);/)?.[1] || "image/jpeg";
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) u8arr[n] = bstr.charCodeAt(n);
-    return new Blob([u8arr], { type: mime });
-  }, [isActive]);
-
   const captureAsync = useCallback((): Promise<Blob | null> => {
     return new Promise((resolve) => {
       if (!videoRef.current || !isActive) {
@@ -94,12 +63,21 @@ export function useCamera(options: UseCameraOptions = {}) {
         return;
       }
 
-      const canvas = document.createElement("canvas");
       const video = videoRef.current;
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        resolve(null);
+        return;
+      }
+
+      const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
 
-      const ctx = canvas.getContext("2d")!;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
       ctx.drawImage(video, 0, 0);
 
       canvas.toBlob(
@@ -122,7 +100,6 @@ export function useCamera(options: UseCameraOptions = {}) {
     hasPermission,
     start,
     stop,
-    capture,
     captureAsync,
   };
 }

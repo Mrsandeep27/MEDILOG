@@ -42,7 +42,7 @@ export default function EditRecordPage({
     try {
       await updateRecord(recordId, data, images);
       toast.success("Record updated");
-      router.back();
+      router.push(`/records/${recordId}`);
     } catch (err) {
       toast.error("Failed to update record");
       console.error(err);

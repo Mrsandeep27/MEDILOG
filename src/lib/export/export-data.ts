@@ -42,12 +42,7 @@ export async function exportAllData(): Promise<ExportData> {
 export function downloadJSON(data: ExportData): void {
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `medilog-export-${new Date().toISOString().split("T")[0]}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  triggerDownload(blob, `medilog-export-${new Date().toISOString().split("T")[0]}.json`);
 }
 
 export function downloadCSV(data: ExportData): void {
@@ -80,23 +75,37 @@ export function downloadCSV(data: ExportData): void {
     notes?: string;
   }>) {
     rows.push([
-      memberMap[record.member_id] || "",
-      record.type,
-      record.title,
-      record.doctor_name || "",
-      record.hospital_name || "",
-      record.visit_date || "",
-      record.diagnosis || "",
-      (record.notes || "").replace(/\n/g, " "),
+      sanitizeCSVCell(memberMap[record.member_id] || ""),
+      sanitizeCSVCell(record.type),
+      sanitizeCSVCell(record.title),
+      sanitizeCSVCell(record.doctor_name || ""),
+      sanitizeCSVCell(record.hospital_name || ""),
+      sanitizeCSVCell(record.visit_date || ""),
+      sanitizeCSVCell(record.diagnosis || ""),
+      sanitizeCSVCell((record.notes || "").replace(/\n/g, " ")),
     ]);
   }
 
-  const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv" });
+  // Add UTF-8 BOM for Excel compatibility with Hindi text
+  const csv = "\uFEFF" + rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  triggerDownload(blob, `medilog-records-${new Date().toISOString().split("T")[0]}.csv`);
+}
+
+/** Prevent CSV formula injection */
+function sanitizeCSVCell(value: string): string {
+  if (/^[=+\-@\t\r]/.test(value)) {
+    return "'" + value;
+  }
+  return value;
+}
+
+function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `medilog-records-${new Date().toISOString().split("T")[0]}.csv`;
+  a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  // Delay revoke to let browser start the download
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }

@@ -108,8 +108,20 @@ async function syncTable(
       .select("*")
       .gt("updated_at", since);
 
+    // Filter by user ownership — members have user_id directly,
+    // other tables are filtered by member_id belonging to the user's members
     if (tableName === "members") {
       query = query.eq("user_id", userId);
+    } else {
+      // Get user's member IDs to scope the pull
+      const userMembers = await db.members
+        .where("user_id")
+        .equals(userId)
+        .toArray();
+      const memberIds = userMembers.map((m) => m.id);
+      if (memberIds.length > 0 && "member_id" in (await dexieTable.toCollection().first() || {})) {
+        query = query.in("member_id", memberIds);
+      }
     }
 
     const { data, error } = await query;

@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { AppHeader } from "@/components/layout/app-header";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
-import { useRecord, useRecords } from "@/hooks/use-records";
+import { useRecord, useRecords, getRecordImageUrls } from "@/hooks/use-records";
 import { useMedicines } from "@/hooks/use-medicines";
 import { useMember } from "@/hooks/use-members";
 import { RECORD_TYPE_LABELS, FREQUENCY_LABELS } from "@/constants/config";
@@ -45,6 +45,9 @@ export default function RecordDetailPage({
   const { member } = useMember(record?.member_id || "");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // Generate blob URLs on-demand from stored blobs (survives page reload)
+  const imageUrls = record ? getRecordImageUrls(record) : [];
 
   if (isLoading) {
     return (
@@ -65,9 +68,13 @@ export default function RecordDetailPage({
   }
 
   const handleDelete = async () => {
-    await deleteRecord(recordId);
-    toast.success("Record deleted");
-    router.back();
+    try {
+      await deleteRecord(recordId);
+      toast.success("Record deleted");
+      router.push("/records");
+    } catch {
+      toast.error("Failed to delete record");
+    }
   };
 
   const date = record.visit_date
@@ -176,7 +183,7 @@ export default function RecordDetailPage({
         )}
 
         {/* Tags */}
-        {record.tags.length > 0 && (
+        {(record.tags?.length ?? 0) > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
             <Tag className="h-4 w-4 text-muted-foreground" />
             {record.tags.map((tag) => (
@@ -223,17 +230,17 @@ export default function RecordDetailPage({
         )}
 
         {/* Images */}
-        {record.image_urls.length > 0 && (
+        {imageUrls.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <ImageIcon className="h-4 w-4" />
-                Photos ({record.image_urls.length})
+                Photos ({imageUrls.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-2">
-                {record.image_urls.map((url, i) => (
+                {imageUrls.map((url, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedImage(url)}

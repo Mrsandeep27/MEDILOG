@@ -3,7 +3,8 @@
 import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Camera, X, ImagePlus } from "lucide-react";
+import { X, ImagePlus } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,7 +69,7 @@ export function RecordForm({
 
     const totalImages = images.length + files.length;
     if (totalImages > 10) {
-      alert("Maximum 10 images per record");
+      toast.error("Maximum 10 images per record");
       return;
     }
 
