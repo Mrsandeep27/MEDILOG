@@ -134,11 +134,11 @@ export default function SharedRecordPage({
 
       <div className="max-w-2xl mx-auto p-4 space-y-4">
         {/* Allergies & Conditions */}
-        {(member.allergies.length > 0 ||
-          member.chronic_conditions.length > 0) && (
+        {((member.allergies || []).length > 0 ||
+          (member.chronic_conditions || []).length > 0) && (
           <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
             <CardContent className="p-4">
-              {member.allergies.length > 0 && (
+              {(member.allergies || []).length > 0 && (
                 <div className="mb-2">
                   <div className="flex items-center gap-1.5 mb-1">
                     <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -147,7 +147,7 @@ export default function SharedRecordPage({
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {member.allergies.map((a) => (
+                    {(member.allergies || []).map((a) => (
                       <Badge key={a} variant="outline" className="text-xs border-amber-300">
                         {a}
                       </Badge>
@@ -155,13 +155,13 @@ export default function SharedRecordPage({
                   </div>
                 </div>
               )}
-              {member.chronic_conditions.length > 0 && (
+              {(member.chronic_conditions || []).length > 0 && (
                 <div>
                   <span className="text-sm font-semibold text-amber-800 dark:text-amber-400">
                     Chronic Conditions
                   </span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {member.chronic_conditions.map((c) => (
+                    {(member.chronic_conditions || []).map((c) => (
                       <Badge key={c} variant="outline" className="text-xs border-amber-300">
                         {c}
                       </Badge>

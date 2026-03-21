@@ -10,6 +10,7 @@ import {
   Weight,
   Thermometer,
   Heart,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,7 +79,11 @@ export default function InsightsPage({
   const handleAddMetric = async () => {
     const value: Record<string, number> = {};
     for (const field of config.fields) {
-      const v = parseFloat(formValues[field.key] || "0");
+      if (!formValues[field.key]?.trim()) {
+        toast.error(`Please enter a value for ${field.label}`);
+        return;
+      }
+      const v = parseFloat(formValues[field.key]);
       if (isNaN(v) || v < field.min || v > field.max) {
         toast.error(`${field.label} must be between ${field.min} and ${field.max}`);
         return;
@@ -86,16 +91,19 @@ export default function InsightsPage({
       value[field.key] = v;
     }
 
-    await addMetric({
-      member_id: memberId,
-      type: selectedType,
-      value,
-      recorded_at: new Date().toISOString(),
-    });
-
-    toast.success(`${config.label} recorded`);
-    setShowAddDialog(false);
-    setFormValues({});
+    try {
+      await addMetric({
+        member_id: memberId,
+        type: selectedType,
+        value,
+        recorded_at: new Date().toISOString(),
+      });
+      toast.success(`${config.label} recorded`);
+      setShowAddDialog(false);
+      setFormValues({});
+    } catch {
+      toast.error("Failed to save reading");
+    }
   };
 
   const formatMetricValue = (value: Record<string, number>): string => {
@@ -305,12 +313,16 @@ export default function InsightsPage({
                       size="icon"
                       variant="ghost"
                       className="h-8 w-8 text-destructive"
-                      onClick={() => {
-                        deleteMetric(metric.id);
-                        toast.success("Reading deleted");
+                      onClick={async () => {
+                        try {
+                          await deleteMetric(metric.id);
+                          toast.success("Reading deleted");
+                        } catch {
+                          toast.error("Failed to delete reading");
+                        }
                       }}
                     >
-                      ×
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}

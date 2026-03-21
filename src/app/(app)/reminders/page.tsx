@@ -75,21 +75,25 @@ export default function RemindersPage() {
       return;
     }
 
-    await addReminder({
-      medicine_id: "",
-      member_id: member.id,
-      medicine_name: newMedicineName,
-      member_name: member.name,
-      dosage: newDosage || undefined,
-      before_food: newBeforeFood,
-      time: newTime,
-      days: newDays,
-      is_active: true,
-    });
+    try {
+      await addReminder({
+        medicine_id: "",
+        member_id: member.id,
+        medicine_name: newMedicineName,
+        member_name: member.name,
+        dosage: newDosage || undefined,
+        before_food: newBeforeFood,
+        time: newTime,
+        days: newDays,
+        is_active: true,
+      });
 
-    toast.success("Reminder added");
-    setShowAddDialog(false);
-    resetForm();
+      toast.success("Reminder added");
+      setShowAddDialog(false);
+      resetForm();
+    } catch {
+      toast.error("Failed to add reminder");
+    }
   };
 
   const resetForm = () => {
@@ -111,8 +115,29 @@ export default function RemindersPage() {
     reminderId: string,
     action: "taken" | "skipped"
   ) => {
-    await logReminder(reminderId, action);
-    toast.success(action === "taken" ? "Marked as taken" : "Skipped");
+    try {
+      await logReminder(reminderId, action);
+      toast.success(action === "taken" ? "Marked as taken" : "Skipped");
+    } catch {
+      toast.error("Failed to log action");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteReminder(id);
+      toast.success("Reminder deleted");
+    } catch {
+      toast.error("Failed to delete reminder");
+    }
+  };
+
+  const handleToggle = async (id: string) => {
+    try {
+      await toggleReminder(id);
+    } catch {
+      toast.error("Failed to toggle reminder");
+    }
   };
 
   return (
@@ -241,7 +266,7 @@ export default function RemindersPage() {
           />
         ) : (
           <div className="space-y-3">
-            {displayReminders
+            {[...displayReminders]
               .sort((a, b) => a.time.localeCompare(b.time))
               .map((reminder) => (
                 <Card key={reminder.id}>
@@ -318,7 +343,7 @@ export default function RemindersPage() {
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8"
-                          onClick={() => toggleReminder(reminder.id)}
+                          onClick={() => handleToggle(reminder.id)}
                         >
                           {reminder.is_active ? (
                             <ToggleRight className="h-4 w-4 text-primary" />
@@ -330,10 +355,7 @@ export default function RemindersPage() {
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8"
-                          onClick={() => {
-                            deleteReminder(reminder.id);
-                            toast.success("Reminder deleted");
-                          }}
+                          onClick={() => handleDelete(reminder.id)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>

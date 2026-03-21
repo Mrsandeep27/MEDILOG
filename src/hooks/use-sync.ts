@@ -13,9 +13,15 @@ export function useSync() {
   const isOnline = useOnline();
   const user = useAuthStore((s) => s.user);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isSyncingRef = useRef(false);
+  const isOnlineRef = useRef(isOnline);
+
+  // Keep refs in sync with state
+  isOnlineRef.current = isOnline;
 
   const sync = useCallback(async () => {
-    if (!isOnline || !user) return;
+    if (!isOnlineRef.current || !user || isSyncingRef.current) return;
+    isSyncingRef.current = true;
     setIsSyncing(true);
     try {
       const result = await syncAll();
@@ -25,13 +31,18 @@ export function useSync() {
     } catch (err) {
       console.error("Sync failed:", err);
     } finally {
+      isSyncingRef.current = false;
       setIsSyncing(false);
     }
-  }, [isOnline, user]);
+  }, [user]);
 
   const refreshPendingCount = useCallback(async () => {
-    const count = await getPendingCount();
-    setPendingCount(count);
+    try {
+      const count = await getPendingCount();
+      setPendingCount(count);
+    } catch (err) {
+      console.error("Failed to get pending count:", err);
+    }
   }, []);
 
   // Auto-sync on interval

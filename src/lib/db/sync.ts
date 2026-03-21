@@ -3,6 +3,7 @@
 import { db } from "./dexie";
 import { createClient } from "@/lib/supabase/client";
 import type { SyncStatus } from "./schema";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface SyncResult {
   pushed: number;
@@ -32,6 +33,9 @@ const TABLE_MAP: Record<SyncTable, string> = {
   healthMetrics: "health_metrics",
 };
 
+// Fields that should NOT be pushed to the server
+const LOCAL_ONLY_FIELDS = ["local_image_blobs", "sync_status", "synced_at"];
+
 export async function syncAll(): Promise<SyncResult> {
   const result: SyncResult = { pushed: 0, pulled: 0, errors: [] };
   const supabase = createClient();
@@ -46,12 +50,12 @@ export async function syncAll(): Promise<SyncResult> {
 
   for (const table of TABLES_TO_SYNC) {
     try {
-      const tableResult = await syncTable(table, user.id);
+      const tableResult = await syncTable(supabase, table, user.id);
       result.pushed += tableResult.pushed;
       result.pulled += tableResult.pulled;
       result.errors.push(...tableResult.errors);
     } catch (err) {
-      result.errors.push(`${table}: ${(err as Error).message}`);
+      result.errors.push(`${table}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -59,11 +63,11 @@ export async function syncAll(): Promise<SyncResult> {
 }
 
 async function syncTable(
+  supabase: SupabaseClient,
   tableName: SyncTable,
   userId: string
 ): Promise<SyncResult> {
   const result: SyncResult = { pushed: 0, pulled: 0, errors: [] };
-  const supabase = createClient();
   const supabaseTable = TABLE_MAP[tableName];
   const dexieTable = db.table(tableName);
 
@@ -74,10 +78,17 @@ async function syncTable(
 
   for (const item of pendingItems) {
     try {
-      const { local_image_blobs, ...cleanItem } = item as Record<string, unknown>;
+      // Strip local-only fields before pushing
+      const cleanItem: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(item as Record<string, unknown>)) {
+        if (!LOCAL_ONLY_FIELDS.includes(key)) {
+          cleanItem[key] = value;
+        }
+      }
+
       const { error } = await supabase
         .from(supabaseTable)
-        .upsert(cleanItem as Record<string, unknown>, { onConflict: "id" });
+        .upsert(cleanItem, { onConflict: "id" });
 
       if (error) {
         result.errors.push(`Push ${tableName}/${item.id}: ${error.message}`);
@@ -90,7 +101,7 @@ async function syncTable(
       }
     } catch (err) {
       result.errors.push(
-        `Push ${tableName}/${item.id}: ${(err as Error).message}`
+        `Push ${tableName}/${item.id}: ${err instanceof Error ? err.message : String(err)}`
       );
     }
   }
@@ -108,19 +119,21 @@ async function syncTable(
       .select("*")
       .gt("updated_at", since);
 
-    // Filter by user ownership — members have user_id directly,
-    // other tables are filtered by member_id belonging to the user's members
+    // Filter by user ownership
     if (tableName === "members") {
       query = query.eq("user_id", userId);
     } else {
-      // Get user's member IDs to scope the pull
+      // Scope non-member tables by the user's member IDs
       const userMembers = await db.members
         .where("user_id")
         .equals(userId)
         .toArray();
       const memberIds = userMembers.map((m) => m.id);
-      if (memberIds.length > 0 && "member_id" in (await dexieTable.toCollection().first() || {})) {
+      if (memberIds.length > 0) {
         query = query.in("member_id", memberIds);
+      } else if (tableName !== "reminderLogs") {
+        // No members means nothing to pull (except for tables without member_id)
+        return result;
       }
     }
 
@@ -145,7 +158,7 @@ async function syncTable(
       }
     }
   } catch (err) {
-    result.errors.push(`Pull ${tableName}: ${(err as Error).message}`);
+    result.errors.push(`Pull ${tableName}: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   return result;

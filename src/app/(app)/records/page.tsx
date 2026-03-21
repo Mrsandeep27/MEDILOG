@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, FileText, Search } from "lucide-react";
@@ -32,15 +32,20 @@ export default function RecordsPage() {
     (r) => typeFilter === "all" || r.type === typeFilter
   );
 
-  const handleSearch = async (query: string) => {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearch = useCallback((query: string) => {
     setSearch(query);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     if (query.trim().length > 1) {
-      const results = await searchRecords(query);
-      setSearchResults(results);
+      debounceRef.current = setTimeout(async () => {
+        const results = await searchRecords(query);
+        setSearchResults(results);
+      }, 300);
     } else {
       setSearchResults(null);
     }
-  };
+  }, [searchRecords]);
 
   return (
     <div>

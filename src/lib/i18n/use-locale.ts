@@ -5,15 +5,16 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { t, type Locale } from "./translations";
 
 export function useLocale() {
-  const language = useSettingsStore((s) => s.language) as Locale;
+  const rawLanguage = useSettingsStore((s) => s.language);
+  const locale: Locale = rawLanguage === "hi" ? "hi" : "en";
 
   const translate = useCallback(
-    (key: string) => t(key, language),
-    [language]
+    (key: string) => t(key, locale),
+    [locale]
   );
 
   return {
-    locale: language,
+    locale,
     t: translate,
   };
 }

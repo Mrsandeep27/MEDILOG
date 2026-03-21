@@ -1,7 +1,7 @@
 "use client";
 
 export async function requestNotificationPermission(): Promise<boolean> {
-  if (!("Notification" in window)) {
+  if (typeof window === "undefined" || !("Notification" in window)) {
     console.warn("This browser does not support notifications");
     return false;
   }
@@ -17,6 +17,7 @@ export function showNotification(
   title: string,
   options?: NotificationOptions
 ): void {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
 
   const notification = new Notification(title, {
@@ -39,7 +40,11 @@ export function showReminderNotification(
 ): void {
   const body = [
     dosage,
-    beforeFood ? "Before food" : "After food",
+    beforeFood !== undefined
+      ? beforeFood
+        ? "Before food"
+        : "After food"
+      : null,
     `for ${memberName}`,
   ]
     .filter(Boolean)
@@ -47,7 +52,7 @@ export function showReminderNotification(
 
   showNotification(`Time for ${medicineName}`, {
     body,
-    tag: `reminder-${medicineName}-${Date.now()}`,
+    tag: `reminder-${medicineName}`,
     requireInteraction: true,
   });
 }

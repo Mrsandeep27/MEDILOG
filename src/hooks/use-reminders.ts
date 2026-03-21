@@ -38,12 +38,14 @@ export function useReminders(memberId?: string) {
     [memberId]
   );
 
+  // Use date string as dependency so it refreshes after midnight
+  const todayStr = new Date().toDateString();
   const todayReminders = useLiveQuery(() => {
     const today = getDayOfWeek();
     return db.reminders
       .filter((r) => !r.is_deleted && r.is_active && r.days.includes(today))
       .toArray();
-  }, []);
+  }, [todayStr]);
 
   const addReminder = async (data: ReminderFormData): Promise<string> => {
     const id = uuidv4();
@@ -80,12 +82,14 @@ export function useReminders(memberId?: string) {
   };
 
   const toggleReminder = async (id: string): Promise<void> => {
-    const reminder = await db.reminders.get(id);
-    if (!reminder) return;
-    await db.reminders.update(id, {
-      is_active: !reminder.is_active,
-      updated_at: new Date().toISOString(),
-      sync_status: "pending",
+    await db.transaction("rw", db.reminders, async () => {
+      const reminder = await db.reminders.get(id);
+      if (!reminder) return;
+      await db.reminders.update(id, {
+        is_active: !reminder.is_active,
+        updated_at: new Date().toISOString(),
+        sync_status: "pending",
+      });
     });
   };
 
@@ -101,16 +105,26 @@ export function useReminders(memberId?: string) {
     reminderId: string,
     status: ReminderStatus
   ): Promise<void> => {
+    // Build the scheduled_at from the reminder's time + today's date
+    const reminder = await db.reminders.get(reminderId);
+    const now = new Date();
+    let scheduledAt = now.toISOString();
+    if (reminder?.time) {
+      const [hours, minutes] = reminder.time.split(":").map(Number);
+      const scheduled = new Date(now);
+      scheduled.setHours(hours, minutes, 0, 0);
+      scheduledAt = scheduled.toISOString();
+    }
+
     const id = uuidv4();
-    const now = new Date().toISOString();
     const log: ReminderLog = {
       id,
       reminder_id: reminderId,
-      scheduled_at: now,
+      scheduled_at: scheduledAt,
       status,
-      acted_at: now,
-      created_at: now,
-      updated_at: now,
+      acted_at: now.toISOString(),
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
       sync_status: "pending",
       is_deleted: false,
     };
@@ -132,12 +146,22 @@ export function useReminders(memberId?: string) {
 export function useReminderLogs(reminderId?: string) {
   const logs = useLiveQuery(
     () => {
-      if (!reminderId) return db.reminderLogs.toArray();
+      if (!reminderId) {
+        return db.reminderLogs.toArray().then((logs) =>
+          logs.sort((a, b) =>
+            new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()
+          )
+        );
+      }
       return db.reminderLogs
         .where("reminder_id")
         .equals(reminderId)
-        .reverse()
-        .sortBy("scheduled_at");
+        .toArray()
+        .then((logs) =>
+          logs.sort((a, b) =>
+            new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()
+          )
+        );
     },
     [reminderId]
   );

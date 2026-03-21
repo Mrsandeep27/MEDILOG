@@ -99,9 +99,11 @@ export default function SharedLinksPage() {
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8 text-destructive"
-                          onClick={() => {
-                            revokeShareLink(link.id);
-                            toast.success("Link revoked");
+                          onClick={async () => {
+                            try {
+                              await revokeShareLink(link.id);
+                              toast.success("Link revoked");
+                            } catch { toast.error("Failed to revoke"); }
                           }}
                         >
                           <Ban className="h-4 w-4" />
@@ -111,9 +113,11 @@ export default function SharedLinksPage() {
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-destructive"
-                        onClick={() => {
-                          deleteShareLink(link.id);
-                          toast.success("Link deleted");
+                        onClick={async () => {
+                          try {
+                            await deleteShareLink(link.id);
+                            toast.success("Link deleted");
+                          } catch { toast.error("Failed to delete"); }
                         }}
                       >
                         <Trash2 className="h-4 w-4" />

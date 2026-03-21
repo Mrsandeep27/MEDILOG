@@ -4,6 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "@/lib/db/dexie";
 import type { Medicine, Frequency } from "@/lib/db/schema";
+import { useAuthStore } from "@/stores/auth-store";
 
 export interface MedicineFormData {
   record_id: string;
@@ -18,6 +19,7 @@ export interface MedicineFormData {
 }
 
 export function useMedicines(memberId?: string, recordId?: string) {
+  const user = useAuthStore((s) => s.user);
   const medicines = useLiveQuery(
     () => {
       return db.medicines
@@ -43,6 +45,7 @@ export function useMedicines(memberId?: string, recordId?: string) {
   );
 
   const addMedicine = async (data: MedicineFormData): Promise<string> => {
+    if (!user) throw new Error("Not authenticated");
     const id = uuidv4();
     const now = new Date().toISOString();
     const medicine: Medicine = {
