@@ -29,7 +29,8 @@ export default function OnboardingPage() {
     const supabase = createClient();
     supabase.auth
       .getSession()
-      .then(({ data: { session } }) => {
+      .then((response) => {
+        const session = response.data.session;
         if (session?.user) {
           setUser({
             id: session.user.id,
@@ -37,7 +38,6 @@ export default function OnboardingPage() {
             name: session.user.user_metadata?.name || "",
           });
         } else {
-          // Not logged in, redirect to login
           router.replace("/login");
         }
       })
