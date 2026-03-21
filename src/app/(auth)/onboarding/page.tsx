@@ -1,20 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Heart } from "lucide-react";
+import Image from "next/image";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useAuthStore } from "@/stores/auth-store";
 import { useMembers } from "@/hooks/use-members";
 import { MemberForm } from "@/components/family/member-form";
+import { LoadingSpinner } from "@/components/common/loading-spinner";
 import type { MemberFormData } from "@/lib/utils/validators";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { setHasCompletedOnboarding } = useAuthStore();
+  const { user, setUser, setHasCompletedOnboarding } = useAuthStore();
   const { addMember } = useMembers();
   const [loading, setLoading] = useState(false);
+  const [authReady, setAuthReady] = useState(!!user);
+
+  // Sync Supabase session into Zustand (in case user just verified email)
+  useEffect(() => {
+    if (user) {
+      setAuthReady(true);
+      return;
+    }
+
+    const supabase = createClient();
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email || "",
+            name: session.user.user_metadata?.name || "",
+          });
+        } else {
+          // Not logged in, redirect to login
+          router.replace("/login");
+        }
+      })
+      .catch(() => {
+        router.replace("/login");
+      })
+      .finally(() => {
+        setAuthReady(true);
+      });
+  }, [user, setUser, router]);
 
   const handleSubmit = async (data: MemberFormData) => {
     setLoading(true);
@@ -23,18 +56,34 @@ export default function OnboardingPage() {
       setHasCompletedOnboarding(true);
       toast.success("Welcome to MediLog!");
       router.replace("/home");
-    } catch {
+    } catch (err) {
+      console.error("Onboarding error:", err);
       toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  if (!authReady) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <LoadingSpinner text="Setting up..." />
+      </div>
+    );
+  }
+
   return (
     <Card>
       <CardHeader className="text-center space-y-2">
-        <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-          <Heart className="h-7 w-7 text-primary" />
+        <div className="mx-auto">
+          <Image
+            src="/logo.png"
+            alt="MediLog"
+            width={180}
+            height={54}
+            className="mx-auto"
+            priority
+          />
         </div>
         <h1 className="text-xl font-bold">Welcome to MediLog</h1>
         <p className="text-sm text-muted-foreground">
