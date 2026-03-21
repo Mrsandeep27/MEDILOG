@@ -12,6 +12,7 @@ import { useRecords } from "@/hooks/use-records";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFamilyStore } from "@/stores/family-store";
 import { APP_NAME } from "@/constants/config";
+import { PWAInstallBanner } from "@/components/pwa/install-button";
 
 export default function HomePage() {
   const router = useRouter();
@@ -28,6 +29,9 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6">
+      {/* PWA Install Banner */}
+      <PWAInstallBanner />
+
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-4 pt-6 pb-8 rounded-b-3xl">
         <div className="flex items-center justify-between mb-4">

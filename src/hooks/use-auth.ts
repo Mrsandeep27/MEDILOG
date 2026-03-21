@@ -2,34 +2,54 @@
 
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
+import { createClient } from "@/lib/supabase/client";
 
 export function useAuth() {
-  const { user, isAuthenticated, setUser } = useAuthStore();
+  const { user, isAuthenticated, setUser, logout } = useAuthStore();
 
   useEffect(() => {
-    async function checkAuth() {
-      try {
-        const res = await fetch("/api/auth/me");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user) {
-            setUser(data.user);
-            return;
-          }
-        }
-        setUser(null);
-      } catch {
-        // Offline — keep existing state
-      }
-    }
+    const supabase = createClient();
 
-    if (!user) {
-      checkAuth();
-    }
-  }, [user, setUser]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email || "",
+          name: session.user.user_metadata?.name || "",
+          phone: session.user.phone || "",
+        });
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email || "",
+          name: session.user.user_metadata?.name || "",
+          phone: session.user.phone || "",
+        });
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [setUser]);
+
+  const signOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    logout();
+  };
 
   return {
     user,
     isAuthenticated,
+    signOut,
   };
 }

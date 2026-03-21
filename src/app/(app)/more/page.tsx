@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Settings,
   Share2,
@@ -13,8 +12,9 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AppHeader } from "@/components/layout/app-header";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 const menuItems = [
   {
@@ -39,15 +39,10 @@ const menuItems = [
 
 export default function MorePage() {
   const router = useRouter();
-  const { logout } = useAuthStore();
+  const { signOut } = useAuth();
 
   const handleSignOut = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } catch {
-      // Offline — still clear local state
-    }
-    logout();
+    await signOut();
     toast.success("Signed out");
     router.push("/login");
   };
