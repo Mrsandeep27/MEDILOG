@@ -45,29 +45,26 @@ export default function LoginPage() {
       const supabase = createClient();
 
       if (isSignup) {
-        const { data: result, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
         });
 
         if (error) {
           if (error.message.includes("rate limit")) {
             toast.error("Too many attempts. Please wait a few minutes and try again.");
+          } else if (error.message.includes("already registered")) {
+            toast.error("This email is already registered. Please Sign In instead.");
           } else {
             toast.error(error.message);
           }
           return;
         }
 
-        if (result.user) {
-          setUser({
-            id: result.user.id,
-            email: result.user.email || "",
-            name: "",
-          });
-          toast.success("Account created! Let's set up your profile.");
-          router.push("/onboarding");
-        }
+        setEmailSent(data.email);
       } else {
         const { data: result, error } = await supabase.auth.signInWithPassword({
           email: data.email,
