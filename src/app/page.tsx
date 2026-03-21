@@ -20,7 +20,8 @@ export default function RootPage() {
 
     supabase.auth
       .getSession()
-      .then(({ data: { session } }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(({ data: { session } }: any) => {
         if (session?.user) {
           setUser({
             id: session.user.id,
