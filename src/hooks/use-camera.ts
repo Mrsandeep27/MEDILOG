@@ -18,31 +18,60 @@ export function useCamera(options: UseCameraOptions = {}) {
   const start = useCallback(async () => {
     try {
       setError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+
+      // Request camera with fallback constraints for mobile
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode,
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        });
+      } catch {
+        // Fallback: simpler constraints if ideal fails
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode },
+        });
       }
+
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        const video = videoRef.current;
+        video.srcObject = stream;
+
+        // Wait for video metadata to load before playing
+        await new Promise<void>((resolve, reject) => {
+          video.onloadedmetadata = () => {
+            video.play()
+              .then(() => resolve())
+              .catch(reject);
+          };
+          // Timeout fallback — if metadata never fires
+          setTimeout(() => {
+            video.play().then(() => resolve()).catch(reject);
+          }, 2000);
+        });
+      }
+
       isActiveRef.current = true;
       setIsActive(true);
       setHasPermission(true);
     } catch (err) {
-      const message = (err as Error).message;
+      const message = (err as Error).message || "";
       if (message.includes("Permission") || message.includes("NotAllowed")) {
         setError("Camera permission denied. Please allow camera access in your browser settings.");
         setHasPermission(false);
-      } else if (message.includes("NotFound")) {
+      } else if (message.includes("NotFound") || message.includes("DevicesNotFound")) {
         setError("No camera found on this device.");
+      } else if (message.includes("NotReadable") || message.includes("TrackStartError")) {
+        setError("Camera is in use by another app. Close it and try again.");
       } else {
         setError("Failed to access camera. Please try again.");
       }
+      console.error("Camera error:", err);
       isActiveRef.current = false;
       setIsActive(false);
     }
@@ -63,32 +92,38 @@ export function useCamera(options: UseCameraOptions = {}) {
   const captureAsync = useCallback((): Promise<Blob | null> => {
     return new Promise((resolve) => {
       if (!videoRef.current || !isActiveRef.current) {
+        console.warn("Camera not active for capture");
         resolve(null);
         return;
       }
 
       const video = videoRef.current;
-      if (video.videoWidth === 0 || video.videoHeight === 0) {
-        resolve(null);
-        return;
-      }
 
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Wait a frame for the video to be fully rendered
+      requestAnimationFrame(() => {
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+          console.warn("Video dimensions are 0, cannot capture");
+          resolve(null);
+          return;
+        }
 
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        resolve(null);
-        return;
-      }
-      ctx.drawImage(video, 0, 0);
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
 
-      canvas.toBlob(
-        (blob) => resolve(blob),
-        "image/jpeg",
-        0.9
-      );
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(video, 0, 0);
+
+        canvas.toBlob(
+          (blob) => resolve(blob),
+          "image/jpeg",
+          0.85
+        );
+      });
     });
   }, []);
 

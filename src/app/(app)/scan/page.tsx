@@ -89,31 +89,55 @@ export default function ScanPage() {
     }
   };
 
+  const [ocrText, setOcrText] = useState<string>("");
+
   const processImage = async (image: Blob | File) => {
     if (isProcessing) return;
     setIsProcessing(true);
     setStep("processing");
 
     try {
+      // Step 1: OCR — extract text from image
       setStatusText("Extracting text from image...");
-      setOcrProgress(30);
-      const ocrResult = await extractText(image, setOcrProgress);
-      setOcrProgress(60);
+      setOcrProgress(20);
 
-      if (!ocrResult.text.trim()) {
-        toast.error("Could not extract text from image. Try a clearer photo.");
+      let ocrResult;
+      try {
+        ocrResult = await extractText(image, (p) => setOcrProgress(Math.min(p * 0.5, 50)));
+      } catch (ocrErr) {
+        console.error("OCR failed:", ocrErr);
+        toast.error("OCR failed. Trying AI directly...");
+        // If OCR fails, try to send image to AI directly (some AI can read images)
+        ocrResult = { text: "", confidence: 0 };
+      }
+      setOcrProgress(50);
+      setOcrText(ocrResult.text);
+
+      const extractedText = ocrResult.text.trim();
+      if (!extractedText) {
+        toast.error("Could not extract text from image. Try a clearer photo or upload a better image.");
         resetScan();
         return;
       }
 
-      setStatusText("Analyzing prescription with AI...");
-      setOcrProgress(80);
-      const result = await extractPrescription(ocrResult.text);
+      // Step 2: AI — analyze extracted text
+      setStatusText(`Analyzing prescription with AI... (${extractedText.length} chars found)`);
+      setOcrProgress(70);
+
+      const result = await extractPrescription(extractedText);
       setOcrProgress(100);
+
+      if (result.error) {
+        toast.error(`AI: ${result.error}`);
+      }
 
       setExtraction(result);
       setEditedMedicines(result.medicines);
       setStep("review");
+
+      if (result.medicines.length === 0) {
+        toast.info("No medicines detected. You can add them manually.");
+      }
 
       if (members.length === 1) {
         setSelectedMemberId(members[0].id);
@@ -216,12 +240,16 @@ export default function ScanPage() {
         <div className="p-4 space-y-4">
           {isActive ? (
             <div className="relative rounded-2xl overflow-hidden bg-black aspect-[3/4]">
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
+                // @ts-expect-error — webkit vendor prefix for iOS
+                webkitPlaysinline="true"
                 className="w-full h-full object-cover"
+                style={{ transform: "scaleX(1)" }}
               />
               <div className="absolute inset-0 border-2 border-white/30 rounded-2xl m-4" />
               <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
@@ -387,6 +415,20 @@ export default function ScanPage() {
                   <span className="font-medium">{extraction.diagnosis}</span>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* OCR Text (what was read from image) */}
+        {ocrText && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Extracted Text</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap bg-muted p-3 rounded-lg max-h-32 overflow-y-auto font-mono">
+                {ocrText.slice(0, 500)}{ocrText.length > 500 ? "..." : ""}
+              </p>
             </CardContent>
           </Card>
         )}
