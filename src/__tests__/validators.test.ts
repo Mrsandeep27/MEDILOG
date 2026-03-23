@@ -59,8 +59,13 @@ describe("Member Schema", () => {
   const validMember = {
     name: "Sandeep Pandey",
     relation: "self" as const,
+    date_of_birth: "1995-11-27",
+    blood_group: "B+" as const,
+    gender: "male" as const,
     allergies: [],
     chronic_conditions: [],
+    emergency_contact_name: "Mom",
+    emergency_contact_phone: "9876543210",
   };
 
   it("accepts valid member data", () => {
@@ -70,19 +75,34 @@ describe("Member Schema", () => {
   it("accepts member with all fields", () => {
     const full = {
       ...validMember,
-      date_of_birth: "1995-01-15",
-      blood_group: "B+" as const,
-      gender: "male" as const,
       allergies: ["Penicillin", "Dust"],
       chronic_conditions: ["Diabetes"],
-      emergency_contact_name: "Mom",
-      emergency_contact_phone: "9876543210",
     };
     expect(memberSchema.safeParse(full).success).toBe(true);
   });
 
   it("rejects empty name", () => {
     expect(memberSchema.safeParse({ ...validMember, name: "" }).success).toBe(false);
+  });
+
+  it("rejects missing date_of_birth", () => {
+    expect(memberSchema.safeParse({ ...validMember, date_of_birth: "" }).success).toBe(false);
+  });
+
+  it("rejects missing gender", () => {
+    expect(memberSchema.safeParse({ ...validMember, gender: "" }).success).toBe(false);
+  });
+
+  it("rejects missing blood_group", () => {
+    expect(memberSchema.safeParse({ ...validMember, blood_group: "" }).success).toBe(false);
+  });
+
+  it("rejects missing emergency contact name", () => {
+    expect(memberSchema.safeParse({ ...validMember, emergency_contact_name: "" }).success).toBe(false);
+  });
+
+  it("rejects invalid emergency phone", () => {
+    expect(memberSchema.safeParse({ ...validMember, emergency_contact_phone: "1234" }).success).toBe(false);
   });
 
   it("rejects invalid relation", () => {
@@ -97,7 +117,7 @@ describe("Member Schema", () => {
   });
 
   it("accepts all valid blood groups", () => {
-    const groups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", ""];
+    const groups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
     for (const bg of groups) {
       expect(memberSchema.safeParse({ ...validMember, blood_group: bg }).success).toBe(true);
     }

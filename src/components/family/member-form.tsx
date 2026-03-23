@@ -44,10 +44,13 @@ export function MemberForm({
     defaultValues: {
       name: "",
       relation: (defaultRelation as MemberFormData["relation"]) || "self",
-      blood_group: "",
-      gender: "",
+      date_of_birth: "",
+      blood_group: undefined,
+      gender: undefined,
       allergies: [],
       chronic_conditions: [],
+      emergency_contact_name: "",
+      emergency_contact_phone: "",
       ...defaultValues,
     },
   });
@@ -103,6 +106,9 @@ export function MemberForm({
       <div className="space-y-2">
         <Label htmlFor="dob">Date of Birth *</Label>
         <Input id="dob" type="date" {...register("date_of_birth")} />
+        {errors.date_of_birth && (
+          <p className="text-sm text-destructive">{errors.date_of_birth.message}</p>
+        )}
       </div>
 
       {/* Gender */}
@@ -123,6 +129,9 @@ export function MemberForm({
             <SelectItem value="other">Other</SelectItem>
           </SelectContent>
         </Select>
+        {errors.gender && (
+          <p className="text-sm text-destructive">{errors.gender.message}</p>
+        )}
       </div>
 
       {/* Blood Group */}
@@ -145,6 +154,9 @@ export function MemberForm({
             ))}
           </SelectContent>
         </Select>
+        {errors.blood_group && (
+          <p className="text-sm text-destructive">{errors.blood_group.message}</p>
+        )}
       </div>
 
       {/* Allergies */}
@@ -175,6 +187,9 @@ export function MemberForm({
           placeholder="Contact person name"
           {...register("emergency_contact_name")}
         />
+        {errors.emergency_contact_name && (
+          <p className="text-sm text-destructive">{errors.emergency_contact_name.message}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -186,6 +201,9 @@ export function MemberForm({
           maxLength={10}
           {...register("emergency_contact_phone")}
         />
+        {errors.emergency_contact_phone && (
+          <p className="text-sm text-destructive">{errors.emergency_contact_phone.message}</p>
+        )}
       </div>
 
       <Button type="submit" className="w-full" disabled={loading}>

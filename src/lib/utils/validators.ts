@@ -33,15 +33,22 @@ export const memberSchema = z.object({
     "sister",
     "other",
   ]),
-  date_of_birth: z.string().optional(),
-  blood_group: z
-    .enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", ""])
-    .optional(),
-  gender: z.enum(["male", "female", "other", ""]).optional(),
+  date_of_birth: z.string().min(1, "Date of birth is required"),
+  blood_group: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"], {
+    required_error: "Blood group is required",
+    invalid_type_error: "Select a blood group",
+  }),
+  gender: z.enum(["male", "female", "other"], {
+    required_error: "Gender is required",
+    invalid_type_error: "Select gender",
+  }),
   allergies: z.array(z.string()),
   chronic_conditions: z.array(z.string()),
-  emergency_contact_name: z.string().optional(),
-  emergency_contact_phone: z.string().optional(),
+  emergency_contact_name: z.string().min(1, "Emergency contact name is required"),
+  emergency_contact_phone: z
+    .string()
+    .min(1, "Emergency contact phone is required")
+    .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
 });
 
 export type MemberFormData = z.infer<typeof memberSchema>;
