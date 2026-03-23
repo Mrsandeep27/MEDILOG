@@ -100,19 +100,42 @@ export default function RecordsPage() {
         {isLoading ? (
           <LoadingSpinner className="py-12" />
         ) : filteredRecords.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title={search ? "No results found" : "No records yet"}
-            description={
-              search
-                ? `No records matching "${search}"`
-                : "Add your first health record by scanning a prescription or entering details manually."
-            }
-            actionLabel={search ? undefined : "Add Record"}
-            onAction={
-              search ? undefined : () => router.push("/records/add")
-            }
-          />
+          search ? (
+            <EmptyState
+              icon={Search}
+              title="No results found"
+              description={`No records matching "${search}"`}
+            />
+          ) : (
+            <div className="py-8 space-y-4 text-center">
+              <div className="mx-auto h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <FileText className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">No records yet</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Start building your health history
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 max-w-xs mx-auto">
+                <Button size="sm" onClick={() => router.push("/scan")}>
+                  Scan Prescription
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => router.push("/records/add")}>
+                  Add Manually
+                </Button>
+              </div>
+              <div className="bg-muted rounded-lg p-3 text-left max-w-sm mx-auto">
+                <p className="text-xs font-medium mb-1.5">Quick start guide:</p>
+                <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                  <li>Scan a prescription with your camera</li>
+                  <li>AI extracts medicines automatically</li>
+                  <li>Set reminders for each medicine</li>
+                  <li>Share records with your doctor via QR</li>
+                </ol>
+              </div>
+            </div>
+          )
         ) : (
           <div className="space-y-3">
             {filteredRecords.map((record) => (
