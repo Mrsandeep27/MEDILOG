@@ -67,14 +67,18 @@ export default function LabInsightsPage() {
   const analyzeReport = async (imageDataUrl: string) => {
     setIsAnalyzing(true);
     try {
+      // Compress before sending
+      const compressed = await compressDataUrl(imageDataUrl, 1400, 0.75);
+
       const res = await fetch("/api/lab-insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: imageDataUrl }),
+        body: JSON.stringify({ image: compressed }),
       });
 
       if (!res.ok) {
-        toast.error("Failed to analyze report");
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "Failed to analyze report");
         return;
       }
 
@@ -278,4 +282,31 @@ export default function LabInsightsPage() {
       </div>
     </div>
   );
+}
+
+function compressDataUrl(
+  dataUrl: string,
+  maxDimension: number,
+  quality: number
+): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        const ratio = Math.min(maxDimension / width, maxDimension / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(dataUrl); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
 }

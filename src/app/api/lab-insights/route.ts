@@ -45,11 +45,13 @@ export async function POST(request: NextRequest) {
 
     // If image provided (base64), use vision
     if (image) {
-      const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/);
+      const base64Match = image.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
       if (base64Match) {
+        let mime = `image/${base64Match[1]}`;
+        if (mime === "image/jpg") mime = "image/jpeg";
         parts.push({
           inlineData: {
-            mimeType: `image/${base64Match[1]}`,
+            mimeType: mime,
             data: base64Match[2],
           },
         });

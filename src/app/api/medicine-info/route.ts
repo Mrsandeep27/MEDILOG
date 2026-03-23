@@ -97,13 +97,22 @@ Rules:
     }
 
     // image is base64 data URL — extract the base64 part
-    const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/);
+    const base64Match = image.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
     if (!base64Match) {
-      return NextResponse.json({ error: "Invalid image format" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid image format. Please upload a JPG or PNG." }, { status: 400 });
     }
 
-    const mimeType = `image/${base64Match[1]}`;
+    let mimeType = `image/${base64Match[1]}`;
     const base64Data = base64Match[2];
+
+    // Normalize mime type
+    if (mimeType === "image/jpg") mimeType = "image/jpeg";
+
+    // Check base64 size (Vercel limit ~4.5MB, Gemini limit ~20MB)
+    const sizeInBytes = Math.ceil(base64Data.length * 0.75);
+    if (sizeInBytes > 4 * 1024 * 1024) {
+      return NextResponse.json({ error: "Image too large. Please use a smaller photo (under 4MB)." }, { status: 400 });
+    }
 
     const response = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
@@ -135,7 +144,13 @@ Rules:
     if (!response.ok) {
       const errText = await response.text();
       console.error("Gemini Vision error:", response.status, errText);
-      return NextResponse.json({ error: "Failed to analyze image" }, { status: 500 });
+      if (response.status === 400) {
+        return NextResponse.json({ error: "Image could not be processed. Try a clearer photo." }, { status: 400 });
+      }
+      if (response.status === 429) {
+        return NextResponse.json({ error: "AI rate limit reached. Please wait a minute and try again." }, { status: 429 });
+      }
+      return NextResponse.json({ error: `AI service error (${response.status}). Please try again.` }, { status: 500 });
     }
 
     const result = await response.json();

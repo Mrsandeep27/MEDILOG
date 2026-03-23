@@ -70,10 +70,13 @@ export default function MedicinePage() {
   const processImage = async (imageDataUrl: string) => {
     setIsAnalyzing(true);
     try {
+      // Compress image before sending (max 1200px, JPEG 0.7 quality)
+      const compressed = await compressDataUrl(imageDataUrl, 1200, 0.7);
+
       const res = await fetch("/api/medicine-info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: imageDataUrl }),
+        body: JSON.stringify({ image: compressed }),
       });
 
       if (!res.ok) {
@@ -575,4 +578,32 @@ export default function MedicinePage() {
       </div>
     </div>
   );
+}
+
+// Compress data URL image to reduce size for API
+function compressDataUrl(
+  dataUrl: string,
+  maxDimension: number,
+  quality: number
+): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        const ratio = Math.min(maxDimension / width, maxDimension / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(dataUrl); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
 }
