@@ -55,6 +55,8 @@ export interface Member extends SyncMeta {
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
   avatar_url?: string;
+  abha_number?: string;
+  abha_address?: string;
   created_at: string;
 }
 

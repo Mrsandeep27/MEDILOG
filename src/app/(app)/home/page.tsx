@@ -26,6 +26,7 @@ import {
   Meh,
   Frown,
   AlertCircle,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,6 +56,7 @@ const shortcutItems = [
   { href: "/family", icon: Users, label: "Family Members" },
   { href: "/more/shared-links", icon: Share2, label: "Shared Links" },
   { href: "/more/export", icon: Download, label: "Export Report" },
+  { href: "/abha", icon: Shield, label: "ABHA (Health ID)" },
   { href: "/more/feedback", icon: MessageSquare, label: "Feedback" },
   { href: "/more/settings", icon: Settings, label: "Settings" },
 ];

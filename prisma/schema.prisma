@@ -67,6 +67,8 @@ model Member {
   emergency_contact_name  String?
   emergency_contact_phone String?
   avatar_url              String?
+  abha_number             String?
+  abha_address            String?
   is_deleted              Boolean  @default(false)
   created_at              DateTime @default(now())
   updated_at              DateTime @updatedAt
