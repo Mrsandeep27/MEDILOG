@@ -11,25 +11,49 @@ import { LoadingSpinner } from "@/components/common/loading-spinner";
 import type { MemberFormData } from "@/lib/utils/validators";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { db } from "@/lib/db/dexie";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, setUser, setHasCompletedOnboarding } = useAuthStore();
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
   const { addMember } = useMembers();
   const [loading, setLoading] = useState(false);
-  const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const [authReady, setAuthReady] = useState(false);
 
-  // Wait for Zustand hydration, then check Supabase session if needed
   useEffect(() => {
     if (!hasHydrated) return;
 
-    if (user) {
-      setAuthReady(true);
+    // If already completed onboarding, go to home (don't show form again)
+    if (hasCompletedOnboarding && user) {
+      router.replace("/home");
       return;
     }
 
-    // No user in Zustand — check Supabase (user just verified email)
+    if (user) {
+      // Check if user already has a "self" member in Dexie
+      // (could have been synced from another device)
+      db.members
+        .where({ user_id: user.id, is_deleted: false })
+        .filter((m) => m.relation === "self")
+        .first()
+        .then((selfMember) => {
+          if (selfMember) {
+            // Already onboarded on another device — skip
+            setHasCompletedOnboarding(true);
+            router.replace("/home");
+          } else {
+            setAuthReady(true);
+          }
+        })
+        .catch(() => {
+          setAuthReady(true);
+        });
+      return;
+    }
+
+    // No user — check Supabase session (user just verified email)
     const init = async () => {
       try {
         const supabase = createClient();
@@ -41,18 +65,16 @@ export default function OnboardingPage() {
             email: sessionUser.email || "",
             name: (sessionUser.user_metadata as Record<string, string>)?.name || "",
           });
+          // setUser will trigger re-run of this effect to check Dexie
         } else {
           router.replace("/login");
-          return;
         }
       } catch {
         router.replace("/login");
-        return;
       }
-      setAuthReady(true);
     };
     init();
-  }, [hasHydrated, user, setUser, router]);
+  }, [hasHydrated, user, hasCompletedOnboarding, setUser, setHasCompletedOnboarding, router]);
 
   const handleSubmit = async (data: MemberFormData) => {
     setLoading(true);
@@ -93,7 +115,7 @@ export default function OnboardingPage() {
         </div>
         <h1 className="text-xl font-bold">Welcome to MediLog</h1>
         <p className="text-sm text-muted-foreground">
-          Let&apos;s set up your profile to get started
+          Set up your profile to get started. Fields marked * are important.
         </p>
       </CardHeader>
       <CardContent>

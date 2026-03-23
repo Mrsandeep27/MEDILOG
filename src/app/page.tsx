@@ -20,13 +20,13 @@ export default function RootPage() {
     const init = async () => {
       const { hasCompletedOnboarding, isAuthenticated } = useAuthStore.getState();
 
-      // If already authenticated in Zustand, redirect immediately (no API call)
-      if (isAuthenticated && hasCompletedOnboarding) {
-        router.replace("/home");
+      // If already authenticated in Zustand, go to home (ZERO API calls)
+      if (isAuthenticated) {
+        router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
         return;
       }
 
-      // Otherwise check Supabase session
+      // Not in Zustand — check Supabase session (only API call case)
       try {
         const supabase = createClient();
         const { data } = await supabase.auth.getSession();
@@ -43,7 +43,7 @@ export default function RootPage() {
           router.replace("/login");
         }
       } catch {
-        router.replace(isAuthenticated ? "/home" : "/login");
+        router.replace("/login");
       }
     };
 

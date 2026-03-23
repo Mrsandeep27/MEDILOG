@@ -101,13 +101,13 @@ export function MemberForm({
 
       {/* Date of Birth */}
       <div className="space-y-2">
-        <Label htmlFor="dob">Date of Birth</Label>
+        <Label htmlFor="dob">Date of Birth *</Label>
         <Input id="dob" type="date" {...register("date_of_birth")} />
       </div>
 
       {/* Gender */}
       <div className="space-y-2">
-        <Label>Gender</Label>
+        <Label>Gender *</Label>
         <Select
           defaultValue={defaultValues?.gender || ""}
           onValueChange={(val) =>
@@ -127,7 +127,7 @@ export function MemberForm({
 
       {/* Blood Group */}
       <div className="space-y-2">
-        <Label>Blood Group</Label>
+        <Label>Blood Group *</Label>
         <Select
           defaultValue={defaultValues?.blood_group || ""}
           onValueChange={(val) =>

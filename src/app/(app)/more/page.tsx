@@ -46,7 +46,7 @@ const menuItems = [
 
 export default function MorePage() {
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -58,6 +58,25 @@ export default function MorePage() {
     <div>
       <AppHeader title="More" />
       <div className="p-4 space-y-4">
+        {/* User Info */}
+        {user && (
+          <Card>
+            <CardContent className="py-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-sm font-bold text-primary">
+                    {user.name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || "U"}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{user.name || "User"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardContent className="p-0">
             {menuItems.map((item, index) => (
