@@ -224,28 +224,41 @@ export default function HomePage() {
         </section>
       </div>
 
-      {/* === SHORTCUTS MENU (slide-in) === */}
+      {/* === SHORTCUTS MENU (full-screen slide-in) === */}
       {showMenu && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowMenu(false)} />
-          <div className="absolute right-0 top-0 bottom-0 w-72 bg-background shadow-2xl animate-in slide-in-from-right duration-200">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-bold">All Features</h3>
-              <button onClick={() => setShowMenu(false)}>
+          <div className="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw] bg-background shadow-2xl animate-in slide-in-from-right duration-200">
+            {/* Menu Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b bg-primary text-primary-foreground">
+              <div>
+                <h3 className="font-bold text-lg">All Features</h3>
+                <p className="text-xs text-primary-foreground/70">Quick access to everything</p>
+              </div>
+              <button onClick={() => setShowMenu(false)} className="h-9 w-9 rounded-full bg-primary-foreground/10 flex items-center justify-center">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-2 space-y-0.5 overflow-y-auto" style={{ maxHeight: "calc(100vh - 60px)" }}>
+
+            <div className="p-4 space-y-2 overflow-y-auto" style={{ maxHeight: "calc(100vh - 80px)" }}>
+              {/* Emergency — highlighted */}
               {selfMember && (
                 <Link
                   href={`/family/${selfMember.id}/emergency`}
                   onClick={() => setShowMenu(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors"
+                  className="flex items-center gap-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800"
                 >
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                  <span className="text-sm font-medium">Emergency Card</span>
+                  <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-red-700 dark:text-red-400">Emergency Card</span>
+                    <p className="text-[10px] text-red-500">Blood group, allergies, contacts</p>
+                  </div>
                 </Link>
               )}
+
+              {/* Feature Items */}
               {shortcutItems.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -253,10 +266,12 @@ export default function HomePage() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors"
+                    className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-muted transition-colors"
                   >
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{item.label}</span>
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                      <Icon className="h-5 w-5 text-foreground" />
+                    </div>
+                    <span className="text-sm font-medium">{item.label}</span>
                   </Link>
                 );
               })}
