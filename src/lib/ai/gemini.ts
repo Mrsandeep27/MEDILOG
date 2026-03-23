@@ -40,8 +40,8 @@ function getApiKeys(): string[] {
   const primary = process.env.GOOGLE_AI_API_KEY;
   if (primary) keys.push(primary);
 
-  // Support up to 5 additional keys
-  for (let i = 2; i <= 6; i++) {
+  // Support up to 10 additional keys
+  for (let i = 2; i <= 11; i++) {
     const key = process.env[`GOOGLE_AI_API_KEY_${i}`];
     if (key) keys.push(key);
   }
