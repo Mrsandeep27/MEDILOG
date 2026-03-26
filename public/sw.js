@@ -1,12 +1,18 @@
-const CACHE_NAME = "medilog-v2";
+const CACHE_NAME = "medilog-v3";
 const STATIC_ASSETS = [
-  "/",
   "/login",
   "/manifest.json",
 ];
+const IS_LOCALHOST =
+  self.location.hostname === "localhost" ||
+  self.location.hostname === "127.0.0.1";
 
 // Install — cache only essential static assets (others cached on navigation)
 self.addEventListener("install", (event) => {
+  if (IS_LOCALHOST) {
+    self.skipWaiting();
+    return;
+  }
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
       cache.addAll(STATIC_ASSETS).catch(() => {
@@ -19,6 +25,13 @@ self.addEventListener("install", (event) => {
 
 // Activate — clean old caches
 self.addEventListener("activate", (event) => {
+  if (IS_LOCALHOST) {
+    event.waitUntil(
+      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+    );
+    self.clients.claim();
+    return;
+  }
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
@@ -31,6 +44,8 @@ self.addEventListener("activate", (event) => {
 
 // Fetch — network first, fallback to cache
 self.addEventListener("fetch", (event) => {
+  if (IS_LOCALHOST) return;
+
   const { request } = event;
 
   // Skip non-GET, API, and non-http(s) requests (chrome-extension, etc.)
@@ -53,7 +68,7 @@ self.addEventListener("fetch", (event) => {
       .catch(() => {
         // Offline — serve from cache
         return caches.match(request).then((cached) => {
-          return cached || caches.match("/");
+          return cached || caches.match("/login");
         });
       })
   );

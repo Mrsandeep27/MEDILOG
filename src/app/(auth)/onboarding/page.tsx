@@ -58,8 +58,11 @@ export default function OnboardingPage() {
     const init = async () => {
       try {
         const supabase = createClient();
-        const { data } = await supabase.auth.getSession();
-        const sessionUser = data.session?.user;
+        const result = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+        ]);
+        const sessionUser = result?.data?.session?.user;
         if (sessionUser) {
           setUser({
             id: sessionUser.id,

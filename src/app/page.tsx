@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { createClient } from "@/lib/supabase/client";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
 
-// Read onboarding state directly from localStorage — bypasses Zustand hydration issues
 function getStoredOnboarding(): boolean {
   try {
     const raw = localStorage.getItem("medilog-auth");
@@ -15,7 +14,7 @@ function getStoredOnboarding(): boolean {
       return parsed?.state?.hasCompletedOnboarding === true;
     }
   } catch {
-    // Corrupted localStorage — ignore
+    // ignore
   }
   return false;
 }
@@ -23,19 +22,23 @@ function getStoredOnboarding(): boolean {
 export default function RootPage() {
   const router = useRouter();
   const { setUser } = useAuthStore();
-  const didRun = useRef(false);
 
   useEffect(() => {
-    if (didRun.current) return;
-    didRun.current = true;
+    let cancelled = false;
 
     const init = async () => {
-      // Check Supabase session directly — single source of truth
       try {
         const supabase = createClient();
-        const { data } = await supabase.auth.getSession();
-        const user = data.session?.user;
 
+        // Race against a 5s timeout so the page never hangs forever
+        const result = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+        ]);
+
+        if (cancelled) return;
+
+        const user = result?.data?.session?.user;
         if (user) {
           setUser({
             id: user.id,
@@ -48,11 +51,12 @@ export default function RootPage() {
           router.replace("/login");
         }
       } catch {
-        router.replace("/login");
+        if (!cancelled) router.replace("/login");
       }
     };
 
     init();
+    return () => { cancelled = true; };
   }, [router, setUser]);
 
   return (
