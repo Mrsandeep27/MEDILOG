@@ -37,7 +37,12 @@ export function useAuth() {
             logout();
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          // Network error — if Zustand thinks we're authenticated but we can't verify, clear it
+          if (useAuthStore.getState().isAuthenticated) {
+            logout();
+          }
+        });
 
       // One listener for auth state changes
       const {
