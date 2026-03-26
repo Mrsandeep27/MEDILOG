@@ -88,9 +88,28 @@ export default function LoginPage() {
             name: result.user.user_metadata?.name || "",
           });
 
-          const onboarded = useAuthStore.getState().hasCompletedOnboarding;
           toast.success("Welcome back!");
-          window.location.replace(onboarded ? "/home" : "/onboarding");
+
+          // Check localStorage first (fast path)
+          if (useAuthStore.getState().hasCompletedOnboarding) {
+            window.location.replace("/home");
+            return;
+          }
+
+          // Ask server — handles existing user on new device
+          try {
+            const res = await fetch("/api/check-onboarding");
+            const { onboarded } = await res.json();
+            if (onboarded) {
+              useAuthStore.getState().setHasCompletedOnboarding(true);
+              window.location.replace("/home");
+              return;
+            }
+          } catch {
+            // fall through
+          }
+
+          window.location.replace("/onboarding");
         }
       }
     } catch {

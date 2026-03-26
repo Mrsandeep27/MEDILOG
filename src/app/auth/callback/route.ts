@@ -31,7 +31,9 @@ export async function GET(request: NextRequest) {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
 
       if (!error) {
-        return NextResponse.redirect(`${origin}/onboarding`);
+        // Redirect to root — it will check server for existing member
+        // and route to /home (returning user) or /onboarding (new user)
+        return NextResponse.redirect(`${origin}/`);
       }
     } catch (err) {
       console.error("Auth callback error:", err);

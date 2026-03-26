@@ -13,19 +13,39 @@ export default function RootPage() {
         const { data } = await supabase.auth.getSession();
         const user = data.session?.user;
 
-        if (user) {
-          // Put user in store
-          useAuthStore.getState().setUser({
-            id: user.id,
-            email: user.email || "",
-            name: (user.user_metadata as Record<string, string>)?.name || "",
-          });
-
-          const onboarded = useAuthStore.getState().hasCompletedOnboarding;
-          window.location.replace(onboarded ? "/home" : "/onboarding");
-        } else {
+        if (!user) {
           window.location.replace("/login");
+          return;
         }
+
+        // Put user in store
+        useAuthStore.getState().setUser({
+          id: user.id,
+          email: user.email || "",
+          name: (user.user_metadata as Record<string, string>)?.name || "",
+        });
+
+        // Check localStorage first (fast path)
+        if (useAuthStore.getState().hasCompletedOnboarding) {
+          window.location.replace("/home");
+          return;
+        }
+
+        // localStorage says not onboarded — ask the server
+        // (handles existing user on a new device)
+        try {
+          const res = await fetch("/api/check-onboarding");
+          const { onboarded } = await res.json();
+          if (onboarded) {
+            useAuthStore.getState().setHasCompletedOnboarding(true);
+            window.location.replace("/home");
+            return;
+          }
+        } catch {
+          // Server check failed — fall through to onboarding
+        }
+
+        window.location.replace("/onboarding");
       } catch {
         window.location.replace("/login");
       }
