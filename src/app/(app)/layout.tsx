@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, Component, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Component, type ReactNode } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { OfflineIndicator } from "@/components/layout/offline-indicator";
 import { PinLockScreen } from "@/components/layout/pin-lock-screen";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
+import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 
-// Error boundary to gracefully catch page crashes
 class ErrorBoundary extends Component<
   { children: ReactNode },
   { hasError: boolean; error: Error | null }
@@ -51,24 +50,33 @@ class ErrorBoundary extends Component<
 }
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const router = useRouter();
   useAuth();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
-  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (!hasHydrated) return;
+    // One-time session check — if no session, kick to login
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data }: { data: { session: { user: { id: string; email?: string; user_metadata?: Record<string, string> } } | null } }) => {
+      if (!data.session) {
+        window.location.replace("/login");
+      } else {
+        // Make sure store has the user
+        const store = useAuthStore.getState();
+        if (!store.user) {
+          store.setUser({
+            id: data.session.user.id,
+            email: data.session.user.email || "",
+            name: (data.session.user.user_metadata as Record<string, string>)?.name || "",
+          });
+        }
+        setChecked(true);
+      }
+    }).catch(() => {
+      window.location.replace("/login");
+    });
+  }, []);
 
-    if (!isAuthenticated) {
-      router.replace("/login");
-    } else if (!hasCompletedOnboarding) {
-      router.replace("/onboarding");
-    }
-  }, [isAuthenticated, hasCompletedOnboarding, hasHydrated, router]);
-
-  // Block rendering until hydrated AND authenticated AND onboarded
-  if (!hasHydrated || !isAuthenticated || !hasCompletedOnboarding) {
+  if (!checked) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />

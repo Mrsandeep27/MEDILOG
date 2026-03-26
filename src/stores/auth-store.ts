@@ -12,11 +12,9 @@ interface AuthState {
   user: AppUser | null;
   isAuthenticated: boolean;
   hasCompletedOnboarding: boolean;
-  _hasHydrated: boolean;
   setUser: (user: AppUser | null) => void;
   setHasCompletedOnboarding: (value: boolean) => void;
   logout: () => void;
-  setHasHydrated: (value: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -25,7 +23,6 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       hasCompletedOnboarding: false,
-      _hasHydrated: false,
       setUser: (user) =>
         set({
           user,
@@ -39,21 +36,9 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           // Keep hasCompletedOnboarding so returning user skips onboarding
         }),
-      setHasHydrated: (value) => set({ _hasHydrated: value }),
     }),
     {
       name: "medilog-auth",
-      partialize: (state) => ({
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-        hasCompletedOnboarding: state.hasCompletedOnboarding,
-      }),
-      onRehydrateStorage: () => {
-        return () => {
-          // This callback fires AFTER persist has finished hydrating from localStorage
-          useAuthStore.getState().setHasHydrated(true);
-        };
-      },
     }
   )
 );

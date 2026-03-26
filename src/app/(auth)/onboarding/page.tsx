@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useAuthStore } from "@/stores/auth-store";
@@ -11,74 +10,45 @@ import { LoadingSpinner } from "@/components/common/loading-spinner";
 import type { MemberFormData } from "@/lib/utils/validators";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { db } from "@/lib/db/dexie";
 
 export default function OnboardingPage() {
-  const router = useRouter();
   const { user, setUser, setHasCompletedOnboarding } = useAuthStore();
-  const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
   const { addMember } = useMembers();
   const [loading, setLoading] = useState(false);
-  const [authReady, setAuthReady] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!hasHydrated) return;
-
-    // If already completed onboarding, go to home (don't show form again)
+    // Already onboarded → go home
     if (hasCompletedOnboarding && user) {
-      router.replace("/home");
+      window.location.replace("/home");
       return;
     }
 
+    // Already have user in store → show form
     if (user) {
-      // Check if user already has a "self" member in Dexie
-      // (could have been synced from another device)
-      db.members
-        .where("user_id")
-        .equals(user.id)
-        .filter((m) => m.relation === "self" && !m.is_deleted)
-        .first()
-        .then((selfMember) => {
-          if (selfMember) {
-            // Already onboarded on another device — skip
-            setHasCompletedOnboarding(true);
-            router.replace("/home");
-          } else {
-            setAuthReady(true);
-          }
-        })
-        .catch(() => {
-          setAuthReady(true);
-        });
+      setReady(true);
       return;
     }
 
-    // No user — check Supabase session (user just verified email)
-    const init = async () => {
-      try {
-        const supabase = createClient();
-        const result = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
-        ]);
-        const sessionUser = result?.data?.session?.user;
-        if (sessionUser) {
-          setUser({
-            id: sessionUser.id,
-            email: sessionUser.email || "",
-            name: (sessionUser.user_metadata as Record<string, string>)?.name || "",
-          });
-          // setUser will trigger re-run of this effect to check Dexie
-        } else {
-          router.replace("/login");
-        }
-      } catch {
-        router.replace("/login");
+    // No user in store → check Supabase (user just clicked verify link)
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data }: { data: { session: { user: { id: string; email?: string; user_metadata?: Record<string, string> } } | null } }) => {
+      const sessionUser = data.session?.user;
+      if (sessionUser) {
+        setUser({
+          id: sessionUser.id,
+          email: sessionUser.email || "",
+          name: (sessionUser.user_metadata as Record<string, string>)?.name || "",
+        });
+        setReady(true);
+      } else {
+        window.location.replace("/login");
       }
-    };
-    init();
-  }, [hasHydrated, user, hasCompletedOnboarding, setUser, setHasCompletedOnboarding, router]);
+    }).catch(() => {
+      window.location.replace("/login");
+    });
+  }, [user, hasCompletedOnboarding, setUser]);
 
   const handleSubmit = async (data: MemberFormData) => {
     setLoading(true);
@@ -86,7 +56,7 @@ export default function OnboardingPage() {
       await addMember({ ...data, relation: "self" });
       setHasCompletedOnboarding(true);
       toast.success("Welcome to MediLog!");
-      router.replace("/home");
+      window.location.replace("/home");
     } catch (err) {
       console.error("Onboarding error:", err);
       toast.error("Something went wrong. Please try again.");
@@ -95,7 +65,7 @@ export default function OnboardingPage() {
     }
   };
 
-  if (!authReady) {
+  if (!ready) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <LoadingSpinner text="Setting up..." />

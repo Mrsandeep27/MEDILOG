@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,12 +23,10 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [emailSent, setEmailSent] = useState<string | null>(null);
-  const { setUser } = useAuthStore();
 
   const {
     register,
@@ -45,6 +42,7 @@ export default function LoginPage() {
       const supabase = createClient();
 
       if (isSignup) {
+        // Sign up → Supabase sends verification email
         const { error } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
@@ -55,9 +53,9 @@ export default function LoginPage() {
 
         if (error) {
           if (error.message.includes("rate limit")) {
-            toast.error("Too many attempts. Please wait a few minutes and try again.");
+            toast.error("Too many attempts. Please wait a few minutes.");
           } else if (error.message.includes("already registered")) {
-            toast.error("This email is already registered. Please Sign In instead.");
+            toast.error("This email is already registered. Please Sign In.");
           } else {
             toast.error(error.message);
           }
@@ -66,6 +64,7 @@ export default function LoginPage() {
 
         setEmailSent(data.email);
       } else {
+        // Sign in → go straight to app
         const { data: result, error } = await supabase.auth.signInWithPassword({
           email: data.email,
           password: data.password,
@@ -73,7 +72,7 @@ export default function LoginPage() {
 
         if (error) {
           if (error.message === "Invalid login credentials") {
-            toast.error("No account found with these credentials. Please Sign Up first.");
+            toast.error("Invalid credentials. Please Sign Up first.");
           } else if (error.message === "Email not confirmed") {
             toast.error("Please verify your email first. Check your inbox.");
           } else {
@@ -83,13 +82,15 @@ export default function LoginPage() {
         }
 
         if (result.user) {
-          setUser({
+          useAuthStore.getState().setUser({
             id: result.user.id,
             email: result.user.email || "",
             name: result.user.user_metadata?.name || "",
           });
+
+          const onboarded = useAuthStore.getState().hasCompletedOnboarding;
           toast.success("Welcome back!");
-          router.push("/home");
+          window.location.replace(onboarded ? "/home" : "/onboarding");
         }
       }
     } catch {
@@ -99,7 +100,6 @@ export default function LoginPage() {
     }
   };
 
-  // Show "check your email" after signup
   if (emailSent) {
     return (
       <Card>
