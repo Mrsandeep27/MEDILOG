@@ -38,7 +38,9 @@ export default function RootPage() {
             email: user.email || "",
             name: (user.user_metadata as Record<string, string>)?.name || "",
           });
-          router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
+          // Re-read store AFTER setUser — hasCompletedOnboarding may have been hydrated from localStorage
+          const onboarded = useAuthStore.getState().hasCompletedOnboarding;
+          router.replace(onboarded ? "/home" : "/onboarding");
         } else {
           router.replace("/login");
         }

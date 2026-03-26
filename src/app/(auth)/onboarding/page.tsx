@@ -35,8 +35,9 @@ export default function OnboardingPage() {
       // Check if user already has a "self" member in Dexie
       // (could have been synced from another device)
       db.members
-        .where({ user_id: user.id, is_deleted: false })
-        .filter((m) => m.relation === "self")
+        .where("user_id")
+        .equals(user.id)
+        .filter((m) => m.relation === "self" && !m.is_deleted)
         .first()
         .then((selfMember) => {
           if (selfMember) {

@@ -4,56 +4,72 @@ import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { createClient } from "@/lib/supabase/client";
 
-// Global flag — only one auth listener across the entire app
-let authInitialized = false;
+// Global subscription reference — prevents double subscriptions in React Strict Mode
+let globalSubscription: { unsubscribe: () => void } | null = null;
+let subscriberCount = 0;
 
 export function useAuth() {
   const { user, isAuthenticated, setUser, logout } = useAuthStore();
   const didInit = useRef(false);
 
   useEffect(() => {
-    // Skip if already initialized globally or in this instance
-    if (authInitialized || didInit.current) return;
+    if (didInit.current) return;
     didInit.current = true;
-    authInitialized = true;
+    subscriberCount++;
 
-    const supabase = createClient();
+    // Only set up listener if no global subscription exists
+    if (!globalSubscription) {
+      const supabase = createClient();
 
-    // Only call getSession if Zustand doesn't already have a user (skip redundant API call)
-    const zustandUser = useAuthStore.getState().user;
-    if (!zustandUser) {
-      supabase.auth.getSession().then(({ data }: { data: { session: { user: { id: string; email?: string; user_metadata?: Record<string, string>; phone?: string } } | null } }) => {
-        const u = data.session?.user;
-        if (u) {
+      // Only call getSession if Zustand doesn't already have a user
+      const zustandUser = useAuthStore.getState().user;
+      if (!zustandUser) {
+        supabase.auth
+          .getSession()
+          .then(({ data }: { data: { session: { user: { id: string; email?: string; user_metadata?: Record<string, string>; phone?: string } } | null } }) => {
+            const u = data.session?.user;
+            if (u) {
+              setUser({
+                id: u.id,
+                email: u.email || "",
+                name: (u.user_metadata as Record<string, string>)?.name || "",
+                phone: u.phone || "",
+              });
+            }
+          })
+          .catch(() => {});
+      }
+
+      // One listener for auth state changes
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event: string, session: { user: { id: string; email?: string; user_metadata?: Record<string, string>; phone?: string } } | null) => {
+        if (session?.user) {
           setUser({
-            id: u.id,
-            email: u.email || "",
-            name: (u.user_metadata as Record<string, string>)?.name || "",
-            phone: u.phone || "",
+            id: session.user.id,
+            email: session.user.email || "",
+            name:
+              (session.user.user_metadata as Record<string, string>)?.name ||
+              "",
+            phone: session.user.phone || "",
           });
+        } else {
+          setUser(null);
         }
-      }).catch(() => {});
+      });
+
+      globalSubscription = subscription;
     }
 
-    // One listener for auth state changes (login/logout/token refresh)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: string, session: { user: { id: string; email?: string; user_metadata?: Record<string, string>; phone?: string } } | null) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          name: session.user.user_metadata?.name || "",
-          phone: session.user.phone || "",
-        });
-      } else {
-        setUser(null);
-      }
-    });
-
     return () => {
-      subscription.unsubscribe();
-      authInitialized = false;
+      subscriberCount--;
+      didInit.current = false;
+      // Only unsubscribe when ALL instances are unmounted
+      if (subscriberCount <= 0 && globalSubscription) {
+        globalSubscription.unsubscribe();
+        globalSubscription = null;
+        subscriberCount = 0;
+      }
     };
   }, [setUser]);
 
@@ -64,7 +80,11 @@ export function useAuth() {
     } catch (err) {
       console.error("Sign out error:", err);
     } finally {
-      authInitialized = false;
+      if (globalSubscription) {
+        globalSubscription.unsubscribe();
+        globalSubscription = null;
+      }
+      subscriberCount = 0;
       logout();
     }
   };

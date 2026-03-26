@@ -16,6 +16,7 @@ interface AuthState {
   setUser: (user: AppUser | null) => void;
   setHasCompletedOnboarding: (value: boolean) => void;
   logout: () => void;
+  setHasHydrated: (value: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -38,6 +39,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           hasCompletedOnboarding: false,
         }),
+      setHasHydrated: (value) => set({ _hasHydrated: value }),
     }),
     {
       name: "medilog-auth",
@@ -46,15 +48,12 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
       }),
+      onRehydrateStorage: () => {
+        return () => {
+          // This callback fires AFTER persist has finished hydrating from localStorage
+          useAuthStore.getState().setHasHydrated(true);
+        };
+      },
     }
   )
 );
-
-// Mark hydration complete after store is created
-// Zustand persist hydrates synchronously from localStorage on client
-if (typeof window !== "undefined") {
-  // Use queueMicrotask to ensure persist has finished hydrating
-  queueMicrotask(() => {
-    useAuthStore.setState({ _hasHydrated: true });
-  });
-}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Shield, Delete } from "lucide-react";
 import { verifyPin } from "@/lib/auth/pin";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -8,23 +8,25 @@ import { PIN_LENGTH, PIN_LOCK_TIMEOUT_MS } from "@/constants/config";
 import { cn } from "@/lib/utils";
 
 export function PinLockScreen() {
-  const { pinEnabled, pinHash, lastActiveAt, setLastActiveAt } =
-    useSettingsStore();
+  const { pinEnabled, pinHash, setLastActiveAt } = useSettingsStore();
   const [isLocked, setIsLocked] = useState(false);
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
+  const isLockedRef = useRef(isLocked);
+  isLockedRef.current = isLocked;
 
-  // Check if we should lock
+  // Set up activity tracking + lock check (stable deps, no churn)
   useEffect(() => {
     if (!pinEnabled || !pinHash) return;
 
-    const timeSinceActive = Date.now() - lastActiveAt;
+    // Check on mount if we should lock
+    const timeSinceActive = Date.now() - useSettingsStore.getState().lastActiveAt;
     if (timeSinceActive > PIN_LOCK_TIMEOUT_MS) {
       setIsLocked(true);
     }
 
     const handleActivity = () => {
-      if (!isLocked) {
+      if (!isLockedRef.current) {
         setLastActiveAt(Date.now());
       }
     };
@@ -47,7 +49,7 @@ export function PinLockScreen() {
       window.removeEventListener("touchstart", handleActivity);
       clearInterval(interval);
     };
-  }, [pinEnabled, pinHash, lastActiveAt, setLastActiveAt, isLocked]);
+  }, [pinEnabled, pinHash, setLastActiveAt]);
 
   const handleDigit = useCallback(
     (digit: string) => {
