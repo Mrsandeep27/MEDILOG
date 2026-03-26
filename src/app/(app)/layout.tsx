@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, Component, type ReactNode } from "react";
+import { useEffect, Component, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { BottomNav } from "@/components/layout/bottom-nav";
@@ -8,7 +8,6 @@ import { OfflineIndicator } from "@/components/layout/offline-indicator";
 import { PinLockScreen } from "@/components/layout/pin-lock-screen";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
 import { useAuthStore } from "@/stores/auth-store";
-import { db } from "@/lib/db/dexie";
 
 // Error boundary to gracefully catch page crashes
 class ErrorBoundary extends Component<
@@ -57,44 +56,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
-  const checkedDexie = useRef(false);
-
-  // If authenticated but hasCompletedOnboarding is false, check Dexie directly
-  // This handles the case where logout() reset the flag but the member still exists
-  useEffect(() => {
-    if (!hasHydrated || !isAuthenticated || hasCompletedOnboarding || checkedDexie.current) return;
-    checkedDexie.current = true;
-
-    const userId = useAuthStore.getState().user?.id;
-    if (!userId) {
-      router.replace("/login");
-      return;
-    }
-
-    db.members
-      .where("user_id")
-      .equals(userId)
-      .filter((m) => m.relation === "self" && !m.is_deleted)
-      .first()
-      .then((selfMember) => {
-        if (selfMember) {
-          useAuthStore.getState().setHasCompletedOnboarding(true);
-        } else {
-          router.replace("/onboarding");
-        }
-      })
-      .catch(() => {
-        router.replace("/onboarding");
-      });
-  }, [hasHydrated, isAuthenticated, hasCompletedOnboarding, router]);
 
   useEffect(() => {
     if (!hasHydrated) return;
 
     if (!isAuthenticated) {
       router.replace("/login");
+    } else if (!hasCompletedOnboarding) {
+      router.replace("/onboarding");
     }
-  }, [isAuthenticated, hasHydrated, router]);
+  }, [isAuthenticated, hasCompletedOnboarding, hasHydrated, router]);
 
   // Block rendering until hydrated AND authenticated AND onboarded
   if (!hasHydrated || !isAuthenticated || !hasCompletedOnboarding) {

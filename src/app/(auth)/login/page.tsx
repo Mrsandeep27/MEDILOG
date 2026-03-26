@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
-import { db } from "@/lib/db/dexie";
 import { toast } from "sonner";
 import { PWAInstallButton } from "@/components/pwa/install-button";
 
@@ -90,23 +89,12 @@ export default function LoginPage() {
             name: result.user.user_metadata?.name || "",
           });
 
-          // Check Dexie for existing self member to determine onboarding status
-          try {
-            const selfMember = await db.members
-              .where("user_id")
-              .equals(result.user.id)
-              .filter((m) => m.relation === "self" && !m.is_deleted)
-              .first();
-
-            if (selfMember) {
-              useAuthStore.getState().setHasCompletedOnboarding(true);
-              toast.success("Welcome back!");
-              router.replace("/home");
-            } else {
-              router.replace("/onboarding");
-            }
-          } catch {
-            // Dexie check failed — go to onboarding to be safe
+          // Check if this user already completed onboarding (persisted in Zustand)
+          const { hasCompletedOnboarding } = useAuthStore.getState();
+          if (hasCompletedOnboarding) {
+            toast.success("Welcome back!");
+            router.replace("/home");
+          } else {
             router.replace("/onboarding");
           }
         }

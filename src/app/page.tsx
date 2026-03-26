@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { createClient } from "@/lib/supabase/client";
-import { db } from "@/lib/db/dexie";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
 
 export default function RootPage() {
@@ -14,58 +13,45 @@ export default function RootPage() {
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
 
   useEffect(() => {
-    // Wait for Zustand to hydrate first
     if (!hasHydrated || didRun.current) return;
     didRun.current = true;
 
     const init = async () => {
-      const { isAuthenticated, user: storedUser } = useAuthStore.getState();
+      const { hasCompletedOnboarding, isAuthenticated } =
+        useAuthStore.getState();
 
-      // Helper: check Dexie for self member to determine onboarding
-      const checkOnboarded = async (userId: string): Promise<boolean> => {
-        try {
-          const selfMember = await db.members
-            .where("user_id")
-            .equals(userId)
-            .filter((m) => m.relation === "self" && !m.is_deleted)
-            .first();
-          return !!selfMember;
-        } catch {
-          return false;
-        }
-      };
-
-      // If already authenticated in Zustand, verify onboarding via Dexie
-      if (isAuthenticated && storedUser) {
-        const onboarded = await checkOnboarded(storedUser.id);
-        if (onboarded) {
-          useAuthStore.getState().setHasCompletedOnboarding(true);
-          router.replace("/home");
-        } else {
-          router.replace("/onboarding");
-        }
+      // Already authenticated in Zustand — route immediately
+      if (isAuthenticated) {
+        router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
         return;
       }
 
       // Not in Zustand — check Supabase session
       try {
         const supabase = createClient();
-        const { data } = await supabase.auth.getSession();
+        const {
+          data,
+        }: {
+          data: {
+            session: {
+              user: {
+                id: string;
+                email?: string;
+                user_metadata?: Record<string, string>;
+              };
+            } | null;
+          };
+        } = await supabase.auth.getSession();
         const user = data.session?.user;
 
         if (user) {
           setUser({
             id: user.id,
             email: user.email || "",
-            name: (user.user_metadata as Record<string, string>)?.name || "",
+            name: user.user_metadata?.name || "",
           });
-          const onboarded = await checkOnboarded(user.id);
-          if (onboarded) {
-            useAuthStore.getState().setHasCompletedOnboarding(true);
-            router.replace("/home");
-          } else {
-            router.replace("/onboarding");
-          }
+          const onboarded = useAuthStore.getState().hasCompletedOnboarding;
+          router.replace(onboarded ? "/home" : "/onboarding");
         } else {
           router.replace("/login");
         }
