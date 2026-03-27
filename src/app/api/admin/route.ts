@@ -103,13 +103,15 @@ export async function GET(request: NextRequest) {
       const status = searchParams.get("status") || undefined;
       const category = searchParams.get("category") || undefined;
 
-      let query = supabase.from("feedback").select("*").order("created_at", { ascending: false }).limit(100);
+      // Single query with count — avoids 2 extra count queries
+      let query = supabase.from("feedback").select("*", { count: "exact" }).order("created_at", { ascending: false }).limit(100);
       if (status) query = query.eq("status", status);
       if (category) query = query.eq("category", category);
 
-      const { data: feedback } = await query;
-      const { count: total } = await supabase.from("feedback").select("*", { count: "exact", head: true });
-      const { count: newCount } = await supabase.from("feedback").select("*", { count: "exact", head: true }).eq("status", "new");
+      const [{ data: feedback, count: total }, { count: newCount }] = await Promise.all([
+        query,
+        supabase.from("feedback").select("*", { count: "exact", head: true }).eq("status", "new"),
+      ]);
 
       return NextResponse.json({
         feedback: feedback || [],
@@ -139,10 +141,18 @@ export async function GET(request: NextRequest) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const { count: totalCalls } = await supabase.from("api_usage").select("*", { count: "exact", head: true });
-      const { count: todayCalls } = await supabase.from("api_usage").select("*", { count: "exact", head: true }).gte("created_at", today.toISOString());
-      const { count: successCalls } = await supabase.from("api_usage").select("*", { count: "exact", head: true }).eq("success", true);
-      const { data: recentCalls } = await supabase.from("api_usage").select("*").order("created_at", { ascending: false }).limit(20);
+      // All counts in parallel — 4 queries instead of 4 sequential
+      const [
+        { count: totalCalls },
+        { count: todayCalls },
+        { count: successCalls },
+        { data: recentCalls },
+      ] = await Promise.all([
+        supabase.from("api_usage").select("*", { count: "exact", head: true }),
+        supabase.from("api_usage").select("*", { count: "exact", head: true }).gte("created_at", today.toISOString()),
+        supabase.from("api_usage").select("*", { count: "exact", head: true }).eq("success", true),
+        supabase.from("api_usage").select("*").order("created_at", { ascending: false }).limit(20),
+      ]);
 
       const total = totalCalls || 0;
       const success = successCalls || 0;

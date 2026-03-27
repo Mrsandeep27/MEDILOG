@@ -1,15 +1,22 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // This endpoint is called by Vercel Cron every 5 days
 // to prevent Supabase free tier from pausing
 export async function GET() {
   try {
-    // Simple query to keep the database active
-    const count = await prisma.user.count();
+    const { count } = await supabase
+      .from("members")
+      .select("*", { count: "exact", head: true });
+
     return NextResponse.json({
       status: "alive",
-      users: count,
+      members: count || 0,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {

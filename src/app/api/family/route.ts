@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 function generateInviteCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 to avoid confusion
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
   for (let i = 0; i < 8; i++) {
     code += chars[Math.floor(Math.random() * chars.length)];
@@ -11,46 +15,54 @@ function generateInviteCode(): string {
   return code;
 }
 
+// Verify user from Supabase auth
+async function getUser(request: NextRequest): Promise<string | null> {
+  // Check x-user-id header (legacy)
+  const headerUserId = request.headers.get("x-user-id");
+  if (headerUserId) return headerUserId;
+
+  // Check Authorization header
+  const authHeader = request.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const { data, error } = await supabase.auth.getUser(authHeader.slice(7));
+    if (!error && data.user) return data.user.id;
+  }
+
+  return null;
+}
+
 // GET: Get user's family groups
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.headers.get("x-user-id");
+    const userId = await getUser(req);
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const familyMembers = await prisma.familyMember.findMany({
-      where: { user_id: userId },
-      include: {
-        family: {
-          include: {
-            members: {
-              include: {
-                user: {
-                  select: { id: true, email: true, name: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const { data: familyMembers } = await supabase
+      .from("family_members")
+      .select("role, family_id, families(id, name, invite_code, created_by, family_members(id, user_id, role, joined_at, users(id, email, name)))")
+      .eq("user_id", userId);
 
-    const families = familyMembers.map((fm) => ({
-      id: fm.family.id,
-      name: fm.family.name,
-      invite_code: fm.family.invite_code,
-      role: fm.role,
-      created_by: fm.family.created_by,
-      members: fm.family.members.map((m) => ({
-        id: m.id,
-        user_id: m.user_id,
-        name: m.user.name,
-        email: m.user.email,
-        role: m.role,
-        joined_at: m.joined_at,
-      })),
-    }));
+    const families = (familyMembers || []).map((fm: Record<string, unknown>) => {
+      const family = fm.families as Record<string, unknown>;
+      const members = (family?.family_members as Array<Record<string, unknown>>) || [];
+      return {
+        id: family?.id,
+        name: family?.name,
+        invite_code: family?.invite_code,
+        role: fm.role,
+        created_by: family?.created_by,
+        members: members.map((m) => ({
+          id: m.id,
+          user_id: m.user_id,
+          name: (m.users as Record<string, string>)?.name,
+          email: (m.users as Record<string, string>)?.email,
+          role: m.role,
+          joined_at: m.joined_at,
+        })),
+      };
+    });
 
     return NextResponse.json({ families });
   } catch (err) {
@@ -62,7 +74,7 @@ export async function GET(req: NextRequest) {
 // POST: Create or Join a family group
 export async function POST(req: NextRequest) {
   try {
-    const userId = req.headers.get("x-user-id");
+    const userId = await getUser(req);
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -78,31 +90,28 @@ export async function POST(req: NextRequest) {
 
       // Generate unique invite code
       let inviteCode = generateInviteCode();
-      let exists = await prisma.family.findUnique({ where: { invite_code: inviteCode } });
-      while (exists) {
+      let { data: existing } = await supabase.from("families").select("id").eq("invite_code", inviteCode).single();
+      while (existing) {
         inviteCode = generateInviteCode();
-        exists = await prisma.family.findUnique({ where: { invite_code: inviteCode } });
+        ({ data: existing } = await supabase.from("families").select("id").eq("invite_code", inviteCode).single());
       }
 
-      const family = await prisma.family.create({
-        data: {
-          name: name.trim(),
-          invite_code: inviteCode,
-          created_by: userId,
-          members: {
-            create: {
-              user_id: userId,
-              role: "admin",
-            },
-          },
-        },
-        include: {
-          members: {
-            include: {
-              user: { select: { id: true, email: true, name: true } },
-            },
-          },
-        },
+      // Create family
+      const { data: family, error: famErr } = await supabase
+        .from("families")
+        .insert({ name: name.trim(), invite_code: inviteCode, created_by: userId })
+        .select()
+        .single();
+
+      if (famErr || !family) {
+        return NextResponse.json({ error: "Failed to create family" }, { status: 500 });
+      }
+
+      // Add creator as admin
+      await supabase.from("family_members").insert({
+        family_id: family.id,
+        user_id: userId,
+        role: "admin",
       });
 
       return NextResponse.json({
@@ -112,14 +121,7 @@ export async function POST(req: NextRequest) {
           invite_code: family.invite_code,
           role: "admin",
           created_by: family.created_by,
-          members: family.members.map((m) => ({
-            id: m.id,
-            user_id: m.user_id,
-            name: m.user.name,
-            email: m.user.email,
-            role: m.role,
-            joined_at: m.joined_at,
-          })),
+          members: [],
         },
       });
     }
@@ -130,57 +132,36 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Invite code is required" }, { status: 400 });
       }
 
-      const family = await prisma.family.findUnique({
-        where: { invite_code: invite_code.toUpperCase().trim() },
-        include: { members: true },
-      });
+      const { data: family } = await supabase
+        .from("families")
+        .select("id, name, invite_code, created_by")
+        .eq("invite_code", invite_code.toUpperCase().trim())
+        .single();
 
       if (!family) {
-        return NextResponse.json({ error: "Invalid invite code. Please check and try again." }, { status: 404 });
+        return NextResponse.json({ error: "Invalid invite code" }, { status: 404 });
       }
 
       // Check if already a member
-      const alreadyMember = family.members.some((m) => m.user_id === userId);
-      if (alreadyMember) {
+      const { data: existing } = await supabase
+        .from("family_members")
+        .select("id")
+        .eq("family_id", family.id)
+        .eq("user_id", userId)
+        .single();
+
+      if (existing) {
         return NextResponse.json({ error: "You are already a member of this family" }, { status: 400 });
       }
 
-      await prisma.familyMember.create({
-        data: {
-          family_id: family.id,
-          user_id: userId,
-          role: "member",
-        },
-      });
-
-      // Return updated family
-      const updatedFamily = await prisma.family.findUnique({
-        where: { id: family.id },
-        include: {
-          members: {
-            include: {
-              user: { select: { id: true, email: true, name: true } },
-            },
-          },
-        },
+      await supabase.from("family_members").insert({
+        family_id: family.id,
+        user_id: userId,
+        role: "member",
       });
 
       return NextResponse.json({
-        family: {
-          id: updatedFamily!.id,
-          name: updatedFamily!.name,
-          invite_code: updatedFamily!.invite_code,
-          role: "member",
-          created_by: updatedFamily!.created_by,
-          members: updatedFamily!.members.map((m) => ({
-            id: m.id,
-            user_id: m.user_id,
-            name: m.user.name,
-            email: m.user.email,
-            role: m.role,
-            joined_at: m.joined_at,
-          })),
-        },
+        family: { ...family, role: "member", members: [] },
       });
     }
 
@@ -190,26 +171,25 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Family ID is required" }, { status: 400 });
       }
 
-      const family = await prisma.family.findUnique({
-        where: { id: family_id },
-        include: { members: true },
-      });
+      const { data: members } = await supabase
+        .from("family_members")
+        .select("id, user_id, role")
+        .eq("family_id", family_id);
 
-      if (!family) {
+      if (!members) {
         return NextResponse.json({ error: "Family not found" }, { status: 404 });
       }
 
-      // Admin can't leave if they're the only admin
-      const member = family.members.find((m) => m.user_id === userId);
+      const member = members.find((m: { user_id: string }) => m.user_id === userId);
       if (!member) {
         return NextResponse.json({ error: "Not a member" }, { status: 400 });
       }
 
       if (member.role === "admin") {
-        const otherAdmins = family.members.filter(
-          (m) => m.role === "admin" && m.user_id !== userId
+        const otherAdmins = members.filter(
+          (m: { role: string; user_id: string }) => m.role === "admin" && m.user_id !== userId
         );
-        if (otherAdmins.length === 0 && family.members.length > 1) {
+        if (otherAdmins.length === 0 && members.length > 1) {
           return NextResponse.json(
             { error: "Transfer admin role to another member before leaving" },
             { status: 400 }
@@ -217,13 +197,11 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      await prisma.familyMember.delete({
-        where: { id: member.id },
-      });
+      await supabase.from("family_members").delete().eq("id", member.id);
 
       // If last member, delete the family
-      if (family.members.length <= 1) {
-        await prisma.family.delete({ where: { id: family_id } });
+      if (members.length <= 1) {
+        await supabase.from("families").delete().eq("id", family_id);
       }
 
       return NextResponse.json({ success: true });

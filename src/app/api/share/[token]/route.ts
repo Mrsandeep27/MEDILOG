@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function GET(
   request: NextRequest,
@@ -13,14 +18,15 @@ export async function GET(
 
   try {
     // Find active, non-expired share link
-    const shareLink = await prisma.shareLink.findFirst({
-      where: {
-        token,
-        is_active: true,
-        is_deleted: false,
-        expires_at: { gt: new Date() },
-      },
-    });
+    const { data: shareLink } = await supabase
+      .from("share_links")
+      .select("*")
+      .eq("token", token)
+      .eq("is_active", true)
+      .eq("is_deleted", false)
+      .gt("expires_at", new Date().toISOString())
+      .limit(1)
+      .single();
 
     if (!shareLink) {
       return NextResponse.json(
@@ -30,64 +36,43 @@ export async function GET(
     }
 
     // Get member
-    const member = await prisma.member.findUnique({
-      where: { id: shareLink.member_id },
-      select: {
-        name: true,
-        blood_group: true,
-        allergies: true,
-        chronic_conditions: true,
-        date_of_birth: true,
-        gender: true,
-      },
-    });
+    const { data: member } = await supabase
+      .from("members")
+      .select("name, blood_group, allergies, chronic_conditions, date_of_birth, gender")
+      .eq("id", shareLink.member_id)
+      .single();
 
     if (!member) {
       return NextResponse.json({ error: "Member not found" }, { status: 404 });
     }
 
     // Get records
-    const recordWhere: { member_id: string; is_deleted: boolean; id?: { in: string[] } } = {
-      member_id: shareLink.member_id,
-      is_deleted: false,
-    };
-    if (shareLink.record_ids.length > 0) {
-      recordWhere.id = { in: shareLink.record_ids };
+    let recordQuery = supabase
+      .from("health_records")
+      .select("id, type, title, doctor_name, hospital_name, visit_date, diagnosis, notes")
+      .eq("member_id", shareLink.member_id)
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (shareLink.record_ids && shareLink.record_ids.length > 0) {
+      recordQuery = recordQuery.in("id", shareLink.record_ids);
     }
 
-    const records = await prisma.healthRecord.findMany({
-      where: recordWhere,
-      select: {
-        id: true,
-        type: true,
-        title: true,
-        doctor_name: true,
-        hospital_name: true,
-        visit_date: true,
-        diagnosis: true,
-        notes: true,
-      },
-      orderBy: { created_at: "desc" },
-      take: 100,
-    });
+    const { data: records } = await recordQuery;
 
     // Get medicines
-    const medicines = await prisma.medicine.findMany({
-      where: { member_id: shareLink.member_id, is_deleted: false },
-      select: {
-        name: true,
-        dosage: true,
-        frequency: true,
-        is_active: true,
-      },
-    });
+    const { data: medicines } = await supabase
+      .from("medicines")
+      .select("name, dosage, frequency, is_active")
+      .eq("member_id", shareLink.member_id)
+      .eq("is_deleted", false);
 
-    // Log access (anonymized) — non-critical, log errors
-    await prisma.shareAccessLog.create({
-      data: { share_link_id: shareLink.id },
-    }).catch((err) => {
-      console.error("Failed to log share access:", err);
-    });
+    // Log access (non-critical, fire-and-forget)
+    supabase
+      .from("share_access_logs")
+      .insert({ share_link_id: shareLink.id })
+      .then(() => {});
 
     return NextResponse.json({
       member: {
@@ -95,8 +80,8 @@ export async function GET(
         allergies: member.allergies || [],
         chronic_conditions: member.chronic_conditions || [],
       },
-      records,
-      medicines,
+      records: records || [],
+      medicines: medicines || [],
     });
   } catch (err) {
     console.error("Share API error:", err);

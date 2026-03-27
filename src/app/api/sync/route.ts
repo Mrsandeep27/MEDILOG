@@ -1,29 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/auth/jwt";
-import { prisma } from "@/lib/db/prisma";
-import type { PrismaClient } from "@prisma/client";
+import { createClient } from "@supabase/supabase-js";
 
-type ModelDelegate = PrismaClient[keyof PrismaClient];
-
-function getModel(table: string): ModelDelegate | null {
-  const map: Record<string, ModelDelegate> = {
-    members: prisma.member,
-    health_records: prisma.healthRecord,
-    medicines: prisma.medicine,
-    reminders: prisma.reminder,
-    reminder_logs: prisma.reminderLog,
-    share_links: prisma.shareLink,
-    health_metrics: prisma.healthMetric,
-  };
-  return map[table] || null;
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const ALLOWED_TABLES = [
   "members", "health_records", "medicines", "reminders",
   "reminder_logs", "share_links", "health_metrics",
 ];
 
-// Fields that are safe to sync (whitelist per table)
 const ALLOWED_FIELDS: Record<string, Set<string>> = {
   members: new Set(["id", "name", "relation", "date_of_birth", "blood_group", "gender", "allergies", "chronic_conditions", "emergency_contact_name", "emergency_contact_phone", "avatar_url", "is_deleted", "created_at", "updated_at"]),
   health_records: new Set(["id", "member_id", "type", "title", "doctor_name", "hospital_name", "visit_date", "diagnosis", "notes", "image_urls", "raw_ocr_text", "ai_extracted", "tags", "is_deleted", "created_at", "updated_at"]),
@@ -39,90 +26,101 @@ function sanitizeItem(table: string, item: Record<string, unknown>): Record<stri
   if (!allowed) return {};
   const clean: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(item)) {
-    if (allowed.has(key)) {
-      clean[key] = value;
-    }
+    if (allowed.has(key)) clean[key] = value;
   }
   return clean;
 }
 
-function isValidDate(str: string): boolean {
-  const d = new Date(str);
-  return !isNaN(d.getTime());
+// Get Supabase user from cookie/session
+async function getUser(request: NextRequest): Promise<{ userId: string } | null> {
+  // Try Authorization header first (Supabase access token)
+  const authHeader = request.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const { data, error } = await supabase.auth.getUser(authHeader.slice(7));
+    if (!error && data.user) return { userId: data.user.id };
+  }
+
+  // Try cookie-based session (sb-* cookies from Supabase Auth)
+  const cookies = request.headers.get("cookie") || "";
+  const accessTokenMatch = cookies.match(/sb-[^=]+-auth-token[^=]*=([^;]+)/);
+  if (accessTokenMatch) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(accessTokenMatch[1]));
+      const token = Array.isArray(parsed) ? parsed[0] : parsed?.access_token;
+      if (token) {
+        const { data, error } = await supabase.auth.getUser(token);
+        if (!error && data.user) return { userId: data.user.id };
+      }
+    } catch { /* ignore parse errors */ }
+  }
+
+  return null;
 }
 
+// POST: Push — client sends { tables: { members: [...], health_records: [...] } }
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthUser();
-    if (!auth) {
+    const user = await getUser(request);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { table, items } = await request.json();
+    const body = await request.json();
+    const tablesPayload: Record<string, Record<string, unknown>[]> = body.tables || {};
 
-    if (!table || typeof table !== "string" || !Array.isArray(items) || !ALLOWED_TABLES.includes(table)) {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-    }
-
-    if (items.length > 100) {
-      return NextResponse.json({ error: "Max 100 items per request" }, { status: 400 });
-    }
-
-    const userMembers = await prisma.member.findMany({
-      where: { user_id: auth.userId },
-      select: { id: true },
-    });
-    const memberIds = new Set(userMembers.map((m) => m.id));
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const model = getModel(table) as any;
-    if (!model) {
-      return NextResponse.json({ error: "Invalid table" }, { status: 400 });
+    // Fallback: old format { table, items }
+    if (body.table && body.items) {
+      tablesPayload[body.table] = body.items;
     }
 
     const results = { pushed: 0, errors: [] as string[] };
 
-    for (const item of items) {
-      try {
-        if (!item.id || typeof item.id !== "string") {
-          results.errors.push("Item missing valid id");
-          continue;
-        }
+    // Get user's member IDs for ownership validation
+    const { data: userMembers } = await supabase
+      .from("members")
+      .select("id")
+      .eq("user_id", user.userId);
+    const memberIds = new Set((userMembers || []).map((m: { id: string }) => m.id));
 
-        // Sanitize: only allow whitelisted fields
-        const data = sanitizeItem(table, item);
-        data.id = item.id;
+    for (const [table, items] of Object.entries(tablesPayload)) {
+      if (!ALLOWED_TABLES.includes(table) || !Array.isArray(items)) continue;
 
-        // Ownership validation
-        if (table === "members") {
-          (data as Record<string, unknown>).user_id = auth.userId;
-        } else if ("member_id" in data) {
-          if (!data.member_id || !memberIds.has(data.member_id as string)) {
-            results.errors.push(`${item.id}: unauthorized member_id`);
+      for (const item of items.slice(0, 100)) {
+        try {
+          if (!item.id || typeof item.id !== "string") {
+            results.errors.push("Item missing valid id");
             continue;
           }
-        }
 
-        // Validate record_id for medicines
-        if (table === "medicines" && data.record_id) {
-          const recordExists = await prisma.healthRecord.findUnique({
-            where: { id: data.record_id as string },
-            select: { id: true },
-          });
-          if (!recordExists) {
-            results.errors.push(`${item.id}: invalid record_id`);
-            continue;
+          const data = sanitizeItem(table, item);
+          data.id = item.id;
+
+          // Ownership
+          if (table === "members") {
+            data.user_id = user.userId;
+          } else if ("member_id" in data && data.member_id) {
+            // For first sync, member might not be in DB yet — allow if in same batch
+            if (!memberIds.has(data.member_id as string)) {
+              const batchedMembers = tablesPayload["members"] || [];
+              const inBatch = batchedMembers.some((m) => m.id === data.member_id);
+              if (!inBatch) {
+                results.errors.push(`${item.id}: unauthorized member_id`);
+                continue;
+              }
+            }
           }
-        }
 
-        await model.upsert({
-          where: { id: data.id },
-          create: data,
-          update: data,
-        });
-        results.pushed++;
-      } catch (err) {
-        results.errors.push(`${item.id}: ${err instanceof Error ? err.message : String(err)}`);
+          const { error } = await supabase.from(table).upsert(data, { onConflict: "id" });
+          if (error) {
+            results.errors.push(`${item.id}: ${error.message}`);
+          } else {
+            results.pushed++;
+            // Track new member IDs for subsequent tables in same request
+            if (table === "members") memberIds.add(data.id as string);
+          }
+        } catch (err) {
+          results.errors.push(`${item.id}: ${err instanceof Error ? err.message : String(err)}`);
+        }
       }
     }
 
@@ -133,82 +131,69 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// GET: Pull — client sends ?tables={"members":"2000-01-01T00:00:00Z",...}
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthUser();
-    if (!auth) {
+    const user = await getUser(request);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const table = searchParams.get("table");
-    const sinceRaw = searchParams.get("since") || "2000-01-01T00:00:00Z";
+    const tablesRaw = searchParams.get("tables");
 
-    if (!table || typeof table !== "string" || !ALLOWED_TABLES.includes(table)) {
-      return NextResponse.json({ error: "Invalid table" }, { status: 400 });
+    // Parse table→timestamp map
+    let sinceMap: Record<string, string> = {};
+    if (tablesRaw) {
+      try { sinceMap = JSON.parse(tablesRaw); } catch { /* ignore */ }
     }
 
-    // Validate date param
-    if (!isValidDate(sinceRaw)) {
-      return NextResponse.json({ error: "Invalid since date" }, { status: 400 });
+    // Fallback: old format ?table=members&since=...
+    const singleTable = searchParams.get("table");
+    if (singleTable && !tablesRaw) {
+      sinceMap[singleTable] = searchParams.get("since") || "2000-01-01T00:00:00Z";
     }
-    const since = new Date(sinceRaw);
 
-    const userMembers = await prisma.member.findMany({
-      where: { user_id: auth.userId },
-      select: { id: true },
-    });
-    const memberIds = userMembers.map((m) => m.id);
+    // Get user's member IDs
+    const { data: userMembers } = await supabase
+      .from("members")
+      .select("id")
+      .eq("user_id", user.userId);
+    const memberIds = (userMembers || []).map((m: { id: string }) => m.id);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let data: any[] = [];
+    const data: Record<string, unknown[]> = {};
 
-    switch (table) {
-      case "members":
-        data = await prisma.member.findMany({
-          where: { user_id: auth.userId, updated_at: { gt: since } },
-        });
-        break;
-      case "health_records":
-        data = await prisma.healthRecord.findMany({
-          where: { member_id: { in: memberIds }, updated_at: { gt: since } },
-        });
-        break;
-      case "medicines":
-        data = await prisma.medicine.findMany({
-          where: { member_id: { in: memberIds }, updated_at: { gt: since } },
-        });
-        break;
-      case "reminders":
-        data = await prisma.reminder.findMany({
-          where: { member_id: { in: memberIds }, updated_at: { gt: since } },
-        });
-        break;
-      case "reminder_logs": {
-        const reminderIds = await prisma.reminder.findMany({
-          where: { member_id: { in: memberIds } },
-          select: { id: true },
-        });
-        data = await prisma.reminderLog.findMany({
-          where: {
-            reminder_id: { in: reminderIds.map((r) => r.id) },
-            updated_at: { gt: since },
-          },
-        });
-        break;
+    for (const [table, since] of Object.entries(sinceMap)) {
+      if (!ALLOWED_TABLES.includes(table)) continue;
+
+      let query;
+      if (table === "members") {
+        query = supabase.from("members")
+          .select("*")
+          .eq("user_id", user.userId)
+          .gt("updated_at", since);
+      } else if (table === "reminder_logs") {
+        // Get reminder IDs for this user's members
+        const { data: reminders } = await supabase
+          .from("reminders")
+          .select("id")
+          .in("member_id", memberIds);
+        const reminderIds = (reminders || []).map((r: { id: string }) => r.id);
+        if (reminderIds.length === 0) { data[table] = []; continue; }
+        query = supabase.from("reminder_logs")
+          .select("*")
+          .in("reminder_id", reminderIds)
+          .gt("updated_at", since);
+      } else {
+        if (memberIds.length === 0) { data[table] = []; continue; }
+        query = supabase.from(table)
+          .select("*")
+          .in("member_id", memberIds)
+          .gt("updated_at", since);
       }
-      case "share_links":
-        data = await prisma.shareLink.findMany({
-          where: { member_id: { in: memberIds }, updated_at: { gt: since } },
-        });
-        break;
-      case "health_metrics":
-        data = await prisma.healthMetric.findMany({
-          where: { member_id: { in: memberIds }, updated_at: { gt: since } },
-        });
-        break;
-      default:
-        return NextResponse.json({ error: "Invalid table" }, { status: 400 });
+
+      const { data: rows, error } = await query.limit(500);
+      data[table] = error ? [] : (rows || []);
     }
 
     return NextResponse.json({ data });

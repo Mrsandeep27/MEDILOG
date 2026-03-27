@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/db/prisma";
 
 export async function GET() {
   try {
@@ -31,10 +30,14 @@ export async function GET() {
     }
 
     // Check if this user has a "self" member in the database
-    const selfMember = await prisma.member.findFirst({
-      where: { user_id: user.id, relation: "self", is_deleted: false },
-      select: { id: true, name: true },
-    });
+    const { data: selfMember } = await supabase
+      .from("members")
+      .select("id, name")
+      .eq("user_id", user.id)
+      .eq("relation", "self")
+      .eq("is_deleted", false)
+      .limit(1)
+      .single();
 
     return NextResponse.json({
       onboarded: !!selfMember,
