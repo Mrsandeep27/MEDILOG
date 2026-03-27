@@ -8,6 +8,7 @@ import { PinLockScreen } from "@/components/layout/pin-lock-screen";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
+import { toast } from "sonner";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -70,6 +71,21 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           });
         }
         setChecked(true);
+
+        // Show review nudge once per session
+        if (!sessionStorage.getItem("review-nudge-shown")) {
+          sessionStorage.setItem("review-nudge-shown", "1");
+          setTimeout(() => {
+            toast("🚧 This app is under development!", {
+              description: "Your review will help make the experience much better. Please share your feedback in the Review box under More → Feedback.",
+              duration: 8000,
+              action: {
+                label: "Review Now",
+                onClick: () => { window.location.href = "/more/feedback"; },
+              },
+            });
+          }, 2000);
+        }
       }
     }).catch(() => {
       window.location.replace("/login");
