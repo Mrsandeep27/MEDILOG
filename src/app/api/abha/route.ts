@@ -7,6 +7,7 @@ import {
   createHealthId,
   searchByHealthId,
   loginWithMobile,
+  loginWithAadhaar,
   confirmAuth,
   getAbhaProfile,
 } from "@/lib/abha/client";
@@ -93,6 +94,15 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "healthId required" }, { status: 400 });
         }
         const result = await loginWithMobile(healthId);
+        return NextResponse.json(result);
+      }
+
+      case "login-aadhaar-otp": {
+        const { healthId } = body;
+        if (!healthId) {
+          return NextResponse.json({ error: "healthId required" }, { status: 400 });
+        }
+        const result = await loginWithAadhaar(healthId);
         return NextResponse.json(result);
       }
 
