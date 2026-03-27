@@ -5,6 +5,7 @@ import { syncAll, getPendingCount, type SyncResult } from "@/lib/db/sync";
 import { useOnline } from "@/hooks/use-online";
 import { useAuthStore } from "@/stores/auth-store";
 import { SYNC_INTERVAL_MS } from "@/constants/config";
+import { toast } from "sonner";
 
 // Global: prevent multiple sync loops across re-renders/components
 let syncLoopRunning = false;
@@ -27,6 +28,13 @@ export function useSync() {
       setLastResult(result);
       const count = await getPendingCount();
       setPendingCount(count);
+
+      // Notify user if sync had errors and data is stuck locally
+      if (result.errors.length > 0 && count > 0) {
+        toast.error("Some data failed to sync and is only stored on this device.", {
+          duration: 5000,
+        });
+      }
     } catch (err) {
       console.error("Sync failed:", err);
     } finally {

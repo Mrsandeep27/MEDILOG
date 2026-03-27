@@ -22,16 +22,25 @@ const TABLES_TO_SYNC = [
 // Fields that should NOT be sent to the server
 const LOCAL_ONLY_FIELDS = new Set(["local_image_blobs", "sync_status", "synced_at"]);
 
-// Debounce: prevent multiple syncs firing at once
-let syncInProgress = false;
+// Async lock: prevents overlapping syncs (Promise-based, truly atomic)
+let activeSyncPromise: Promise<SyncResult> | null = null;
 
 /**
  * Batched sync — ONE API call for push, ONE for pull (instead of 14)
  */
 export async function syncAll(): Promise<SyncResult> {
-  if (syncInProgress) return { pushed: 0, pulled: 0, errors: [] };
-  syncInProgress = true;
+  // If sync is already running, wait for it instead of starting a new one
+  if (activeSyncPromise) return activeSyncPromise;
 
+  activeSyncPromise = _doSync();
+  try {
+    return await activeSyncPromise;
+  } finally {
+    activeSyncPromise = null;
+  }
+}
+
+async function _doSync(): Promise<SyncResult> {
   const result: SyncResult = { pushed: 0, pulled: 0, errors: [] };
 
   try {
@@ -139,8 +148,8 @@ export async function syncAll(): Promise<SyncResult> {
     } catch (err) {
       result.errors.push(`Pull: ${err instanceof Error ? err.message : String(err)}`);
     }
-  } finally {
-    syncInProgress = false;
+  } catch (err) {
+    result.errors.push(`Sync: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   return result;

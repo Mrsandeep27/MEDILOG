@@ -7,6 +7,7 @@ import { db } from "@/lib/db/dexie";
 import type { HealthRecord, RecordType } from "@/lib/db/schema";
 import { useAuthStore } from "@/stores/auth-store";
 import type { RecordFormData } from "@/lib/utils/validators";
+import { MAX_IMAGES_PER_RECORD } from "@/constants/config";
 
 export function useRecords(memberId?: string) {
   const user = useAuthStore((s) => s.user);
@@ -81,11 +82,14 @@ export function useRecords(memberId?: string) {
     };
 
     if (newImages && newImages.length > 0) {
-      const newBlobs = await Promise.all(newImages.map(compressImage));
-      updateData.local_image_blobs = [
-        ...(existing.local_image_blobs || []),
-        ...newBlobs,
-      ];
+      const existingBlobs = existing.local_image_blobs || [];
+      const remaining = MAX_IMAGES_PER_RECORD - existingBlobs.length;
+      if (remaining <= 0) {
+        throw new Error(`Maximum ${MAX_IMAGES_PER_RECORD} images per record`);
+      }
+      const imagesToAdd = newImages.slice(0, remaining);
+      const newBlobs = await Promise.all(imagesToAdd.map(compressImage));
+      updateData.local_image_blobs = [...existingBlobs, ...newBlobs];
     }
 
     await db.records.update(id, updateData);

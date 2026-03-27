@@ -61,13 +61,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       if (!data.session) {
         window.location.replace("/login");
       } else {
-        // Make sure store has the user
+        // Sync store with real session — fix stale/missing user data
         const store = useAuthStore.getState();
-        if (!store.user) {
+        const sessionUser = data.session.user;
+        if (!store.user || store.user.id !== sessionUser.id) {
           store.setUser({
-            id: data.session.user.id,
-            email: data.session.user.email || "",
-            name: (data.session.user.user_metadata as Record<string, string>)?.name || "",
+            id: sessionUser.id,
+            email: sessionUser.email || "",
+            name: (sessionUser.user_metadata as Record<string, string>)?.name || "",
           });
         }
         setChecked(true);
