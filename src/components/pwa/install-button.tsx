@@ -72,7 +72,7 @@ export function PWAInstallBanner() {
   return null;
 }
 
-export function PWAInstallButton() {
+export function PWAInstallButton({ label = "Install MediLog App" }: { label?: string }) {
   const { canInstall, isInstalled, isIOS, install } = usePWAInstall();
 
   if (isInstalled) return null;
@@ -94,7 +94,7 @@ export function PWAInstallButton() {
       disabled={!canInstall}
     >
       <Download className="h-4 w-4" />
-      {canInstall ? "Install MediLog App" : "Install MediLog App"}
+      {label}
     </Button>
   );
 }

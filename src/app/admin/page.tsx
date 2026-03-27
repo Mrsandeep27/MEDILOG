@@ -192,7 +192,7 @@ export default function AdminPage() {
             <Button className="w-full" onClick={handleLogin} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Login as Admin"}
             </Button>
-            <PWAInstallButton />
+            <PWAInstallButton label="Install MediLog Admin" />
           </CardContent>
         </Card>
       </div>
