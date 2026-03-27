@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
 import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Admin emails — set in Vercel env var (comma-separated)
 function getAdminEmails(): string[] {
@@ -14,11 +18,6 @@ async function verifyAdmin(request: NextRequest): Promise<{ email: string } | nu
   if (!authHeader?.startsWith("Bearer ")) return null;
 
   const token = authHeader.slice(7);
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseKey) return null;
-
-  const supabase = createClient(supabaseUrl, supabaseKey);
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user?.email) return null;
 
@@ -30,6 +29,22 @@ async function verifyAdmin(request: NextRequest): Promise<{ email: string } | nu
   }
 
   return { email };
+}
+
+// Helper: count rows in a table with optional filter
+async function countRows(table: string, filter?: Record<string, unknown>): Promise<number> {
+  try {
+    let query = supabase.from(table).select("*", { count: "exact", head: true });
+    if (filter) {
+      for (const [key, value] of Object.entries(filter)) {
+        query = query.eq(key, value);
+      }
+    }
+    const { count } = await query;
+    return count || 0;
+  } catch {
+    return 0;
+  }
 }
 
 // GET: Admin dashboard data
@@ -44,10 +59,6 @@ export async function GET(request: NextRequest) {
     const section = searchParams.get("section") || "overview";
 
     if (section === "overview") {
-      // Use try-catch per query to handle missing tables gracefully
-      const safeCount = async (fn: () => Promise<number>) => { try { return await fn(); } catch { return 0; } };
-      const safeQuery = async <T>(fn: () => Promise<T>, fallback: T) => { try { return await fn(); } catch { return fallback; } };
-
       const [
         totalMembers,
         totalRecords,
@@ -56,121 +67,95 @@ export async function GET(request: NextRequest) {
         totalFeedback,
         newFeedback,
         totalFamilies,
-        recentFeedback,
       ] = await Promise.all([
-        safeCount(() => prisma.member.count({ where: { is_deleted: false } })),
-        safeCount(() => prisma.healthRecord.count({ where: { is_deleted: false } })),
-        safeCount(() => prisma.medicine.count({ where: { is_deleted: false } })),
-        safeCount(() => prisma.reminder.count({ where: { is_deleted: false } })),
-        safeCount(() => prisma.feedback.count()),
-        safeCount(() => prisma.feedback.count({ where: { status: "new" } })),
-        safeCount(() => prisma.family.count()),
-        safeQuery(() => prisma.feedback.findMany({ orderBy: { created_at: "desc" }, take: 5 }), []),
+        countRows("members", { is_deleted: false }),
+        countRows("health_records", { is_deleted: false }),
+        countRows("medicines", { is_deleted: false }),
+        countRows("reminders", { is_deleted: false }),
+        countRows("feedback"),
+        countRows("feedback", { status: "new" }),
+        countRows("families"),
       ]);
 
+      const { data: recentFeedback } = await supabase
+        .from("feedback")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
       return NextResponse.json({
-        stats: {
-          totalMembers,
-          totalRecords,
-          totalMedicines,
-          totalReminders,
-          totalFeedback,
-          newFeedback,
-          totalFamilies,
-        },
-        recentFeedback,
+        stats: { totalMembers, totalRecords, totalMedicines, totalReminders, totalFeedback, newFeedback, totalFamilies },
+        recentFeedback: recentFeedback || [],
       });
     }
 
     if (section === "users") {
-      const members = await prisma.member.findMany({
-        where: { is_deleted: false },
-        orderBy: { created_at: "desc" },
-        take: 100,
-        select: {
-          id: true,
-          name: true,
-          relation: true,
-          gender: true,
-          blood_group: true,
-          user_id: true,
-          created_at: true,
-        },
-      });
-      return NextResponse.json({ members });
+      const { data: members } = await supabase
+        .from("members")
+        .select("id, name, relation, gender, blood_group, user_id, created_at")
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      return NextResponse.json({ members: members || [] });
     }
 
     if (section === "feedback") {
       const status = searchParams.get("status") || undefined;
       const category = searchParams.get("category") || undefined;
 
-      const feedback = await prisma.feedback.findMany({
-        where: {
-          ...(status ? { status } : {}),
-          ...(category ? { category } : {}),
-        },
-        orderBy: { created_at: "desc" },
-        take: 100,
+      let query = supabase.from("feedback").select("*").order("created_at", { ascending: false }).limit(100);
+      if (status) query = query.eq("status", status);
+      if (category) query = query.eq("category", category);
+
+      const { data: feedback } = await query;
+      const { count: total } = await supabase.from("feedback").select("*", { count: "exact", head: true });
+      const { count: newCount } = await supabase.from("feedback").select("*", { count: "exact", head: true }).eq("status", "new");
+
+      return NextResponse.json({
+        feedback: feedback || [],
+        stats: { total: total || 0, new: newCount || 0 },
       });
-
-      const stats = {
-        total: await prisma.feedback.count(),
-        new: await prisma.feedback.count({ where: { status: "new" } }),
-        avgRating: await prisma.feedback.aggregate({ _avg: { rating: true } }),
-      };
-
-      return NextResponse.json({ feedback, stats });
     }
 
     if (section === "families") {
-      const families = await prisma.family.findMany({
-        include: {
-          members: {
-            include: {
-              user: { select: { email: true, name: true } },
-            },
-          },
-        },
-        orderBy: { created_at: "desc" },
-      });
-      return NextResponse.json({ families });
+      const { data: families } = await supabase
+        .from("families")
+        .select("*, family_members(*, users(email, name))")
+        .order("created_at", { ascending: false });
+      return NextResponse.json({ families: families || [] });
     }
 
     if (section === "records") {
-      const records = await prisma.healthRecord.findMany({
-        where: { is_deleted: false },
-        orderBy: { created_at: "desc" },
-        take: 50,
-        include: {
-          member: { select: { name: true } },
-        },
-      });
-      return NextResponse.json({ records });
+      const { data: records } = await supabase
+        .from("health_records")
+        .select("*, members(name)")
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      return NextResponse.json({ records: records || [] });
     }
 
     if (section === "api-usage") {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const [totalCalls, todayCalls, successCalls, failedCalls, byFeature, recentCalls, avgDuration] = await Promise.all([
-        prisma.apiUsage.count(),
-        prisma.apiUsage.count({ where: { created_at: { gte: today } } }),
-        prisma.apiUsage.count({ where: { success: true } }),
-        prisma.apiUsage.count({ where: { success: false } }),
-        prisma.apiUsage.groupBy({ by: ["feature"], _count: true, orderBy: { _count: { feature: "desc" } } }),
-        prisma.apiUsage.findMany({ orderBy: { created_at: "desc" }, take: 20 }),
-        prisma.apiUsage.aggregate({ _avg: { duration: true } }),
-      ]);
+      const { count: totalCalls } = await supabase.from("api_usage").select("*", { count: "exact", head: true });
+      const { count: todayCalls } = await supabase.from("api_usage").select("*", { count: "exact", head: true }).gte("created_at", today.toISOString());
+      const { count: successCalls } = await supabase.from("api_usage").select("*", { count: "exact", head: true }).eq("success", true);
+      const { data: recentCalls } = await supabase.from("api_usage").select("*").order("created_at", { ascending: false }).limit(20);
+
+      const total = totalCalls || 0;
+      const success = successCalls || 0;
 
       return NextResponse.json({
-        totalCalls,
-        todayCalls,
-        successCalls,
-        failedCalls,
-        successRate: totalCalls > 0 ? Math.round((successCalls / totalCalls) * 100) : 0,
-        avgDuration: Math.round(avgDuration._avg.duration || 0),
-        byFeature,
-        recentCalls,
+        totalCalls: total,
+        todayCalls: todayCalls || 0,
+        successCalls: success,
+        failedCalls: total - success,
+        successRate: total > 0 ? Math.round((success / total) * 100) : 0,
+        avgDuration: 0,
+        byFeature: [],
+        recentCalls: recentCalls || [],
       });
     }
 
@@ -194,14 +179,14 @@ export async function PATCH(request: NextRequest) {
 
     if (action === "update_feedback") {
       const { id, status, admin_note } = body;
-      const updated = await prisma.feedback.update({
-        where: { id },
-        data: {
-          ...(status ? { status } : {}),
-          ...(admin_note !== undefined ? { admin_note } : {}),
-        },
-      });
-      return NextResponse.json({ success: true, feedback: updated });
+      const updateData: Record<string, string> = {};
+      if (status) updateData.status = status;
+      if (admin_note !== undefined) updateData.admin_note = admin_note;
+
+      const { data, error } = await supabase.from("feedback").update(updateData).eq("id", id).select().single();
+      if (error) throw error;
+
+      return NextResponse.json({ success: true, feedback: data });
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
