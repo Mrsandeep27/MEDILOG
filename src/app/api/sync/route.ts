@@ -32,13 +32,39 @@ function sanitizeItem(table: string, item: Record<string, unknown>): Record<stri
   return clean;
 }
 
+// Short-lived auth cache — avoids duplicate GoTrue calls within a sync cycle
+// Push and pull from same client hit within seconds; caching halves GoTrue load
+const authCache = new Map<string, { userId: string; expires: number }>();
+const AUTH_CACHE_TTL_MS = 30_000; // 30 seconds
+
+function pruneAuthCache() {
+  if (authCache.size > 500) {
+    const now = Date.now();
+    for (const [k, v] of authCache) {
+      if (v.expires < now) authCache.delete(k);
+    }
+  }
+}
+
 // Get Supabase user from cookie/session
 async function getUser(request: NextRequest): Promise<{ userId: string } | null> {
   // Try Authorization header first (Supabase access token)
   const authHeader = request.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
-    const { data, error } = await supabaseAuth.auth.getUser(authHeader.slice(7));
-    if (!error && data.user) return { userId: data.user.id };
+    const token = authHeader.slice(7);
+
+    // Check cache — same token verified in last 30s
+    const cached = authCache.get(token);
+    if (cached && cached.expires > Date.now()) {
+      return { userId: cached.userId };
+    }
+
+    const { data, error } = await supabaseAuth.auth.getUser(token);
+    if (!error && data.user) {
+      authCache.set(token, { userId: data.user.id, expires: Date.now() + AUTH_CACHE_TTL_MS });
+      pruneAuthCache();
+      return { userId: data.user.id };
+    }
   }
 
   // Try cookie-based session (sb-* cookies from Supabase Auth)
@@ -74,7 +100,7 @@ export async function POST(request: NextRequest) {
       tablesPayload[body.table] = body.items;
     }
 
-    const results = { pushed: 0, errors: [] as string[] };
+    const results = { pushed: 0, errors: [] as string[], failedIds: [] as string[] };
 
     // Get user's member IDs for ownership validation
     const { data: userMembers } = await supabaseAdmin
@@ -83,45 +109,96 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.userId);
     const memberIds = new Set((userMembers || []).map((m: { id: string }) => m.id));
 
+    // Pre-fetch user's reminder IDs for reminder_logs ownership validation
+    let userReminderIds = new Set<string>();
+    if (memberIds.size > 0 && tablesPayload["reminder_logs"]?.length) {
+      const { data: userReminders } = await supabaseAdmin
+        .from("reminders")
+        .select("id")
+        .in("member_id", [...memberIds]);
+      userReminderIds = new Set((userReminders || []).map((r: { id: string }) => r.id));
+    }
+
     for (const [table, items] of Object.entries(tablesPayload)) {
       if (!ALLOWED_TABLES.includes(table) || !Array.isArray(items)) continue;
 
+      // Phase 1: Validate ownership, collect valid items (no DB calls)
+      const validItems: { data: Record<string, unknown>; id: string }[] = [];
+
       for (const item of items.slice(0, 100)) {
-        try {
-          if (!item.id || typeof item.id !== "string") {
-            results.errors.push("Item missing valid id");
-            continue;
-          }
+        if (!item.id || typeof item.id !== "string") {
+          results.errors.push("Item missing valid id");
+          continue;
+        }
 
-          const data = sanitizeItem(table, item);
-          data.id = item.id;
+        const data = sanitizeItem(table, item);
+        data.id = item.id;
 
-          // Ownership
-          if (table === "members") {
-            data.user_id = user.userId;
-          } else if ("member_id" in data && data.member_id) {
-            // For first sync, member might not be in DB yet — allow if in same batch
-            if (!memberIds.has(data.member_id as string)) {
-              const batchedMembers = tablesPayload["members"] || [];
-              const inBatch = batchedMembers.some((m) => m.id === data.member_id);
-              if (!inBatch) {
-                results.errors.push(`${item.id}: unauthorized member_id`);
-                continue;
-              }
+        // Ownership
+        if (table === "members") {
+          data.user_id = user.userId;
+        } else if (table === "reminder_logs") {
+          const rid = data.reminder_id as string;
+          if (!rid || !userReminderIds.has(rid)) {
+            const batchedReminders = tablesPayload["reminders"] || [];
+            const inBatch = batchedReminders.some((r) => r.id === rid);
+            if (!inBatch) {
+              results.errors.push(`${item.id}: unauthorized reminder_id`);
+              results.failedIds.push(item.id);
+              continue;
             }
           }
-
-          const { error } = await supabaseAdmin.from(table).upsert(data, { onConflict: "id" });
-          if (error) {
-            results.errors.push(`${item.id}: ${error.message}`);
-          } else {
-            results.pushed++;
-            // Track new member IDs for subsequent tables in same request
-            if (table === "members") memberIds.add(data.id as string);
+        } else if ("member_id" in data && data.member_id) {
+          if (!memberIds.has(data.member_id as string)) {
+            const batchedMembers = tablesPayload["members"] || [];
+            const inBatch = batchedMembers.some((m) => m.id === data.member_id);
+            if (!inBatch) {
+              results.errors.push(`${item.id}: unauthorized member_id`);
+              results.failedIds.push(item.id);
+              continue;
+            }
           }
-        } catch (err) {
-          results.errors.push(`${item.id}: ${err instanceof Error ? err.message : String(err)}`);
         }
+
+        validItems.push({ data, id: item.id });
+      }
+
+      if (validItems.length === 0) continue;
+
+      // Phase 2: Batch upsert — 1 DB call instead of N
+      try {
+        const batchData = validItems.map(v => v.data);
+        const { error: batchError } = await supabaseAdmin
+          .from(table)
+          .upsert(batchData, { onConflict: "id" });
+
+        if (!batchError) {
+          results.pushed += validItems.length;
+          if (table === "members") {
+            for (const v of validItems) memberIds.add(v.data.id as string);
+          }
+        } else {
+          // Batch failed (one bad row fails all) — fallback to per-item
+          for (const { data, id } of validItems) {
+            try {
+              const { error } = await supabaseAdmin.from(table).upsert(data, { onConflict: "id" });
+              if (error) {
+                results.errors.push(`${id}: ${error.message}`);
+                results.failedIds.push(id);
+              } else {
+                results.pushed++;
+                if (table === "members") memberIds.add(data.id as string);
+              }
+            } catch (err) {
+              results.errors.push(`${id}: ${err instanceof Error ? err.message : String(err)}`);
+              results.failedIds.push(id);
+            }
+          }
+        }
+      } catch (err) {
+        // Entire batch call failed (network, etc.) — mark all as failed
+        for (const { id } of validItems) results.failedIds.push(id);
+        results.errors.push(`${table}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
@@ -174,6 +251,7 @@ export async function GET(request: NextRequest) {
           .eq("user_id", user.userId)
           .gt("updated_at", since);
       } else if (table === "reminder_logs") {
+        if (memberIds.length === 0) { data[table] = []; continue; }
         // Get reminder IDs for this user's members
         const { data: reminders } = await supabaseAdmin
           .from("reminders")
@@ -193,7 +271,9 @@ export async function GET(request: NextRequest) {
           .gt("updated_at", since);
       }
 
-      const { data: rows, error } = await query.limit(500);
+      const { data: rows, error } = await query
+        .order("updated_at", { ascending: true })
+        .limit(500);
       data[table] = error ? [] : (rows || []);
     }
 

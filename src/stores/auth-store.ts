@@ -24,10 +24,15 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       hasCompletedOnboarding: false,
       setUser: (user) =>
-        set({
+        set((state) => ({
           user,
           isAuthenticated: !!user,
-        }),
+          // Reset onboarding flag when a different user logs in (shared device)
+          hasCompletedOnboarding:
+            user && state.user && state.user.id !== user.id
+              ? false
+              : state.hasCompletedOnboarding,
+        })),
       setHasCompletedOnboarding: (value) =>
         set({ hasCompletedOnboarding: value }),
       logout: () =>

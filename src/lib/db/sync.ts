@@ -3,6 +3,7 @@
 import { db } from "./dexie";
 import type { SyncStatus } from "./schema";
 import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/stores/auth-store";
 
 export interface SyncResult {
   pushed: number;
@@ -47,7 +48,16 @@ async function getAuthToken(): Promise<string | null> {
   try {
     const supabase = createClient();
     const { data } = await supabase.auth.getSession();
-    return data.session?.access_token ?? null;
+    if (data.session?.access_token) {
+      // Check if token expires within 60s — if so, force a refresh
+      const expiresAt = data.session.expires_at;
+      if (expiresAt && expiresAt - Math.floor(Date.now() / 1000) < 60) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        return refreshed.session?.access_token ?? data.session.access_token;
+      }
+      return data.session.access_token;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -99,10 +109,8 @@ async function _doSync(): Promise<SyncResult> {
           if (data.errors) result.errors.push(...data.errors);
 
           // Mark synced — skip failed items and guard against mid-sync edits
-          const failedIds = new Set(
-            (data.errors || [])
-              .map((e: string) => e.split(":")[0]?.trim())
-              .filter(Boolean)
+          const failedIds = new Set<string>(
+            Array.isArray(data.failedIds) ? data.failedIds : []
           );
           const now = new Date().toISOString();
           for (const { local, remote } of TABLES_TO_SYNC) {
@@ -121,6 +129,8 @@ async function _doSync(): Promise<SyncResult> {
           }
         } else {
           result.errors.push(`Push failed: HTTP ${response.status}`);
+          // Auth failed — pull will fail too, skip it
+          if (response.status === 401 || response.status === 403) return result;
         }
       } catch (err) {
         result.errors.push(`Push: ${err instanceof Error ? err.message : String(err)}`);
@@ -149,39 +159,46 @@ async function _doSync(): Promise<SyncResult> {
             if (!Array.isArray(serverItems) || serverItems.length === 0) continue;
 
             const dexieTable = db.table(local);
+            let latestProcessed = sinceMap[remote];
+
             for (const serverItem of serverItems) {
-              const localItem = await dexieTable.get(serverItem.id);
+              try {
+                const localItem = await dexieTable.get(serverItem.id);
 
-              // Never overwrite local pending changes — they haven't pushed yet
-              if (localItem?.sync_status === "pending") continue;
+                // Never overwrite local pending changes — they haven't pushed yet
+                // Don't advance watermark past them so they're re-fetched next cycle
+                if (localItem?.sync_status === "pending") continue;
 
-              if (
-                !localItem ||
-                new Date(serverItem.updated_at) > new Date(localItem.updated_at)
-              ) {
-                // Preserve local-only fields the server doesn't have
-                const preserved: Record<string, unknown> = {};
-                if (localItem?.local_image_blobs) {
-                  preserved.local_image_blobs = localItem.local_image_blobs;
+                if (
+                  !localItem ||
+                  new Date(serverItem.updated_at) > new Date(localItem.updated_at)
+                ) {
+                  // Preserve local-only fields the server doesn't have
+                  const preserved: Record<string, unknown> = {};
+                  if (localItem?.local_image_blobs) {
+                    preserved.local_image_blobs = localItem.local_image_blobs;
+                  }
+
+                  await dexieTable.put({
+                    ...serverItem,
+                    ...preserved,
+                    sync_status: "synced" as SyncStatus,
+                    synced_at: new Date().toISOString(),
+                  });
+                  result.pulled++;
                 }
 
-                await dexieTable.put({
-                  ...serverItem,
-                  ...preserved,
-                  sync_status: "synced" as SyncStatus,
-                  synced_at: new Date().toISOString(),
-                });
-                result.pulled++;
+                // Advance watermark only for non-skipped items
+                if (serverItem.updated_at > latestProcessed) {
+                  latestProcessed = serverItem.updated_at;
+                }
+              } catch (err) {
+                result.errors.push(`Pull ${serverItem.id}: ${err instanceof Error ? err.message : String(err)}`);
               }
             }
 
-            // Update timestamp
-            const latest = serverItems.reduce(
-              (max: string, item: { updated_at: string }) =>
-                item.updated_at > max ? item.updated_at : max,
-              sinceMap[remote]
-            );
-            setSyncTimestamp(remote, latest);
+            // Only advance timestamp based on items actually processed
+            setSyncTimestamp(remote, latestProcessed);
           }
         }
       }
@@ -203,15 +220,20 @@ async function _doSync(): Promise<SyncResult> {
   return result;
 }
 
-// Per-table sync timestamps
+// Per-table, per-user sync timestamps
+// Scoped by user ID so shared devices don't cross-contaminate
 function getSyncTimestamp(table: string): string {
   if (typeof window === "undefined") return new Date(0).toISOString();
-  return localStorage.getItem(`medilog_sync_${table}`) || new Date(0).toISOString();
+  const userId = useAuthStore.getState().user?.id;
+  const key = userId ? `medilog_sync_${userId}_${table}` : `medilog_sync_${table}`;
+  return localStorage.getItem(key) || new Date(0).toISOString();
 }
 
 function setSyncTimestamp(table: string, timestamp: string): void {
   if (typeof window !== "undefined") {
-    localStorage.setItem(`medilog_sync_${table}`, timestamp);
+    const userId = useAuthStore.getState().user?.id;
+    const key = userId ? `medilog_sync_${userId}_${table}` : `medilog_sync_${table}`;
+    localStorage.setItem(key, timestamp);
   }
 }
 
