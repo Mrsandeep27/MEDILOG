@@ -234,9 +234,18 @@ export default function AbhaPage() {
           <>
             {/* ABHA Info Banner */}
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <img src="/abha-logo.png" alt="ABHA" className="h-6" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                <h2 className="font-bold text-green-800">Ayushman Bharat Health Account</h2>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-green-600 to-emerald-600 flex items-center justify-center shadow-sm">
+                  <span className="text-white font-black text-sm">A</span>
+                </div>
+                <div>
+                  <h2 className="font-bold text-green-800 text-base">ABHA Health ID</h2>
+                  <p className="text-[10px] text-green-600 font-medium">Ayushman Bharat Digital Mission</p>
+                </div>
+                <div className="ml-auto flex items-center gap-1 bg-green-100 px-2 py-0.5 rounded-full">
+                  <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                  <span className="text-[9px] font-bold text-green-700">GOVT. OF INDIA</span>
+                </div>
               </div>
               <p className="text-sm text-green-700">
                 Link your ABHA to pull verified records from hospitals, labs & pharmacies across India.
@@ -250,10 +259,13 @@ export default function AbhaPage() {
                 <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 rounded-2xl p-5 text-white shadow-lg">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
-                        <Shield className="h-4 w-4 text-white" />
+                      <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
+                        <span className="text-white font-black text-xs">A</span>
                       </div>
-                      <span className="text-xs font-medium opacity-80">Ayushman Bharat</span>
+                      <div>
+                        <span className="text-xs font-bold">ABHA Health ID</span>
+                        <p className="text-[9px] opacity-60">Ayushman Bharat Digital Mission</p>
+                      </div>
                     </div>
                     <span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-bold">VERIFIED</span>
                   </div>
@@ -271,7 +283,7 @@ export default function AbhaPage() {
                         <span className="text-xs opacity-70 ml-2">DOB: {selfMember.date_of_birth}</span>
                       )}
                     </div>
-                    <img src="/abha-logo.png" alt="" className="h-5 opacity-60" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    <span className="text-[9px] font-bold opacity-40">GOVT. OF INDIA</span>
                   </div>
                 </div>
 
