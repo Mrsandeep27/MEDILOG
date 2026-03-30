@@ -6,8 +6,8 @@ import crypto from "crypto";
 
 // ─── Environment ────────────────────────────────────────────────────────────
 const ABDM_BASE = process.env.ABDM_ENV === "production"
-  ? "https://abhasbx.abdm.gov.in"     // Production: https://abha.abdm.gov.in
-  : "https://abhasbx.abdm.gov.in";    // Sandbox
+  ? "https://abha.abdm.gov.in"
+  : "https://abhasbx.abdm.gov.in";
 
 const CLIENT_ID = process.env.ABDM_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.ABDM_CLIENT_SECRET || "";
@@ -98,7 +98,8 @@ async function encryptWithAbdmKey(plainText: string): Promise<string> {
 // ─── Authenticated Fetch Helper ─────────────────────────────────────────────
 async function abdmFetch(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retried = false
 ): Promise<Response> {
   const token = await getAbdmToken();
 
@@ -113,9 +114,16 @@ async function abdmFetch(
     },
   });
 
+  // Token expired mid-request — clear cache and retry once
+  if (res.status === 401 && !retried) {
+    cachedToken = null;
+    return abdmFetch(path, options, true);
+  }
+
   if (!res.ok) {
+    // Log status only — never log response body (may contain PII)
+    console.error(`[ABDM] ${path} failed: HTTP ${res.status}`);
     const errorBody = await res.text().catch(() => "Unknown error");
-    console.error(`[ABDM] ${path} failed:`, res.status, errorBody);
     throw new Error(`ABDM API error (${res.status}): ${errorBody}`);
   }
 
@@ -221,12 +229,14 @@ export async function createHealthId(
 
 // Search by Health ID
 export async function searchByHealthId(healthId: string) {
+  const encryptedId = await encryptWithAbdmKey(healthId);
+
   const res = await abdmFetch("/api/v3/profile/login/request/otp", {
     method: "POST",
     body: JSON.stringify({
       scope: ["abha-login"],
       loginHint: "abha-number",
-      loginId: healthId,
+      loginId: encryptedId,
       otpSystem: "abdm",
     }),
   });
@@ -301,13 +311,9 @@ export async function getAbhaProfile(xToken: string) {
 
 // Get ABHA card (QR code)
 export async function getAbhaCard(xToken: string) {
-  const token = await getAbdmToken();
-  const res = await fetch(`${ABDM_BASE}/api/v3/profile/account/abha-card`, {
+  const res = await abdmFetch("/api/v3/profile/account/abha-card", {
     method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "X-Token": `Bearer ${xToken}`,
-    },
+    headers: { "X-Token": `Bearer ${xToken}` },
   });
 
   return res.blob();
