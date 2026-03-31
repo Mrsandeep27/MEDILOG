@@ -15,10 +15,11 @@ const VISION_MODELS = [
   "gemini-2.5-flash-lite",
 ];
 
+// Text: accuracy-first for medical advice (AI doctor, chat)
 const TEXT_MODELS = [
-  "gemini-3.1-flash-lite-preview",
-  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
   "gemini-3-flash-preview",
+  "gemini-2.5-flash-lite",
 ];
 
 let currentKeyIndex = 0;
