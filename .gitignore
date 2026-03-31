@@ -36,8 +36,8 @@ yarn-error.log*
 !.env.example
 
 # local planning/tracking docs
-PRD.md
-MEMORY.md
+docs/PRD.md
+docs/MEMORY.md
 
 # vercel
 .vercel
