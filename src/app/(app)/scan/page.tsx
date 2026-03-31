@@ -426,19 +426,7 @@ export default function ScanPage() {
           </Card>
         )}
 
-        {/* OCR Text (what was read from image) */}
-        {ocrText && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Extracted Text</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground whitespace-pre-wrap bg-muted p-3 rounded-lg max-h-32 overflow-y-auto font-mono">
-                {ocrText.slice(0, 500)}{ocrText.length > 500 ? "..." : ""}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        {/* OCR text hidden — Gemini Vision reads the image directly */}
 
         {/* Medicines */}
         <Card>
