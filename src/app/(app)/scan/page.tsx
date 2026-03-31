@@ -103,34 +103,25 @@ export default function ScanPage() {
     setStep("processing");
 
     try {
-      // Step 1: OCR — extract text from image
-      setStatusText("Extracting text from image...");
+      // Step 1: OCR — extract text (runs in parallel as supplementary context)
+      setStatusText("Reading prescription...");
       setOcrProgress(20);
 
-      let ocrResult;
+      let ocrText = "";
       try {
-        ocrResult = await extractText(image, (p) => setOcrProgress(Math.min(p * 0.5, 50)));
+        const ocrResult = await extractText(image, (p) => setOcrProgress(Math.min(p * 0.4, 40)));
+        ocrText = ocrResult.text;
+        setOcrText(ocrText);
       } catch (ocrErr) {
-        console.error("OCR failed:", ocrErr);
-        toast.error("OCR failed. Trying AI directly...");
-        // If OCR fails, try to send image to AI directly (some AI can read images)
-        ocrResult = { text: "", confidence: 0 };
+        console.error("OCR failed (will use AI vision instead):", ocrErr);
       }
       setOcrProgress(50);
-      setOcrText(ocrResult.text);
 
-      const extractedText = ocrResult.text.trim();
-      if (!extractedText) {
-        toast.error("Could not extract text from image. Try a clearer photo or upload a better image.");
-        resetScan();
-        return;
-      }
-
-      // Step 2: AI — analyze extracted text
-      setStatusText(`Analyzing prescription with AI... (${extractedText.length} chars found)`);
+      // Step 2: AI Vision — send image + OCR text to Gemini
+      setStatusText("AI is analyzing the prescription...");
       setOcrProgress(70);
 
-      const result = await extractPrescription(extractedText);
+      const result = await extractPrescription(ocrText, image);
       setOcrProgress(100);
 
       if (result.error) {

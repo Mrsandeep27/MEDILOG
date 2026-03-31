@@ -213,7 +213,7 @@ function StepScan({
       }
 
       const { extractPrescription } = await import("@/lib/ai/extract-prescription");
-      const result = await extractPrescription(ocrText);
+      const result = await extractPrescription(ocrText, file);
 
       if (result.error) {
         toast.error("Could not extract prescription. Try a clearer photo.");

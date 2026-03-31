@@ -21,8 +21,28 @@ export interface ExtractionResult {
   error?: string;
 }
 
+/**
+ * Convert a Blob/File to a base64 data URL for sending to Gemini Vision.
+ */
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Extract prescription data using Gemini Vision (primary) + OCR text (supplementary).
+ *
+ * @param ocrText  - OCR text (can be empty if OCR failed)
+ * @param imageBlob - Original image blob to send to Gemini Vision (optional but recommended)
+ * @param apiEndpoint - API endpoint (defaults to /api/extract)
+ */
 export async function extractPrescription(
   ocrText: string,
+  imageBlob?: Blob | null,
   apiEndpoint?: string
 ): Promise<ExtractionResult> {
   const endpoint = apiEndpoint || "/api/extract";
@@ -31,13 +51,39 @@ export async function extractPrescription(
     const { createClient } = await import("@/lib/supabase/client");
     const { data: { session } } = await createClient().auth.getSession();
 
+    // Build request body
+    const body: { text?: string; image?: string } = {};
+
+    // Convert image to base64 if available
+    if (imageBlob) {
+      try {
+        body.image = await blobToBase64(imageBlob);
+      } catch {
+        // If image conversion fails, fall back to text-only
+      }
+    }
+
+    // Always include OCR text as supplementary context
+    if (ocrText) {
+      body.text = ocrText;
+    }
+
+    // Need at least one of image or text
+    if (!body.image && !body.text) {
+      return {
+        medicines: [],
+        raw_text: "",
+        error: "No image or text to process",
+      };
+    }
+
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       },
-      body: JSON.stringify({ text: ocrText }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
