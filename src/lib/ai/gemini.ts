@@ -43,6 +43,8 @@ interface GeminiOptions {
   maxOutputTokens?: number;
   feature?: string; // for tracking: medicine-info, lab-insights, extract, ai-doctor
   userId?: string;
+  /** System instruction — separated from user content to prevent prompt injection */
+  systemInstruction?: string;
 }
 
 // Log API usage to database (fire-and-forget)
@@ -79,7 +81,7 @@ export async function callGemini(
 
   const hasImage = parts.some((p) => p.inlineData);
   const models = hasImage ? VISION_MODELS : TEXT_MODELS;
-  const { temperature = 0.1, maxOutputTokens = 2048, feature = "unknown", userId } = options;
+  const { temperature = 0.1, maxOutputTokens = 2048, feature = "unknown", userId, systemInstruction } = options;
 
   let lastError = "";
   const startKeyIndex = currentKeyIndex % apiKeys.length;
@@ -101,6 +103,9 @@ export async function callGemini(
               "x-goog-api-key": apiKey,
             },
             body: JSON.stringify({
+              ...(systemInstruction ? {
+                system_instruction: { parts: [{ text: systemInstruction }] },
+              } : {}),
               contents: [{ parts }],
               generationConfig: { temperature, maxOutputTokens },
             }),
