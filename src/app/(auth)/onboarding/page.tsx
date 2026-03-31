@@ -10,6 +10,7 @@ import { LoadingSpinner } from "@/components/common/loading-spinner";
 import type { MemberFormData } from "@/lib/utils/validators";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { syncAll } from "@/lib/db/sync";
 
 export default function OnboardingPage() {
   const { user, setUser, setHasCompletedOnboarding } = useAuthStore();
@@ -56,6 +57,10 @@ export default function OnboardingPage() {
       await addMember({ ...data, relation: "self" });
       setHasCompletedOnboarding(true);
       toast.success("Welcome to MediLog!");
+
+      // Immediately sync to Supabase so other devices can detect onboarding
+      syncAll().catch(() => {/* best-effort, don't block navigation */});
+
       window.location.replace("/home");
     } catch (err) {
       console.error("Onboarding error:", err);

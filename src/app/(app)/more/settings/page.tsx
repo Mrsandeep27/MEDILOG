@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Bell, Globe, Palette } from "lucide-react";
+import { Lock, Bell, Globe, Palette, Sun, Moon, Monitor } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { AppHeader } from "@/components/layout/app-header";
 import { useSettingsStore } from "@/stores/settings-store";
 import { hashPin } from "@/lib/auth/pin";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 
 export default function SettingsPage() {
   const {
@@ -23,6 +24,7 @@ export default function SettingsPage() {
     setNotificationsEnabled,
   } = useSettingsStore();
 
+  const { theme, setTheme: setNextTheme } = useTheme();
   const [pinInput, setPinInput] = useState("");
   const [showPinSetup, setShowPinSetup] = useState(false);
 
@@ -143,6 +145,44 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Theme */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Palette className="h-4 w-4" />
+              Theme
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Button
+                variant={theme === "light" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setNextTheme("light")}
+              >
+                <Sun className="h-4 w-4 mr-1" />
+                Light
+              </Button>
+              <Button
+                variant={theme === "dark" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setNextTheme("dark")}
+              >
+                <Moon className="h-4 w-4 mr-1" />
+                Dark
+              </Button>
+              <Button
+                variant={theme === "system" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setNextTheme("system")}
+              >
+                <Monitor className="h-4 w-4 mr-1" />
+                System
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Language */}
         <Card>
           <CardHeader className="pb-2">
@@ -165,7 +205,7 @@ export default function SettingsPage() {
                 size="sm"
                 onClick={() => setLanguage("hi")}
               >
-                Hindi (Coming soon)
+                Hindi
               </Button>
             </div>
           </CardContent>

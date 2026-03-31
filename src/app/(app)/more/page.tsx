@@ -12,6 +12,11 @@ import {
   MessageSquare,
   Activity,
   AlertTriangle,
+  Clock,
+  CalendarDays,
+  Heart,
+  Zap,
+  Award,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -25,7 +30,12 @@ const menuSections = [
     title: "Health Tools",
     items: [
       { href: "/smart-records", icon: Activity, label: "Health Overview", description: "View health data and insights" },
+      { href: "/timeline", icon: Clock, label: "Health Timeline", description: "Chronological view of all events" },
+      { href: "/appointments", icon: CalendarDays, label: "Appointments", description: "Track doctor appointments" },
+      { href: "/emergency-card", icon: Heart, label: "Emergency Card", description: "Emergency health info & QR" },
+      { href: "/medicine-checker", icon: Zap, label: "Medicine Checker", description: "Check drug interactions" },
       { href: "/health-risk", icon: AlertTriangle, label: "Risk Assessment", description: "Check health risk factors" },
+      { href: "/badges", icon: Award, label: "Health Badges", description: "Track your achievements" },
       { href: "/more/export", icon: Download, label: "Download Report", description: "Export health report as PDF" },
     ],
   },
@@ -40,7 +50,7 @@ const menuSections = [
   {
     title: "Account",
     items: [
-      { href: "/more/settings", icon: Settings, label: "Settings", description: "Language, theme, PIN, notifications" },
+      { href: "/more/settings", icon: Settings, label: "Settings", description: "Theme, language, PIN, notifications" },
       { href: "/more/feedback", icon: MessageSquare, label: "Feedback", description: "Report bugs or suggest features" },
     ],
   },
