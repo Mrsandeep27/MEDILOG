@@ -22,14 +22,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AppHeader } from "@/components/layout/app-header";
 import { useAuth } from "@/hooks/use-auth";
+import { useLocale } from "@/lib/i18n/use-locale";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { Activity as BarChart3 } from "lucide-react";
 
 const menuSections = [
   {
     title: "Health Tools",
     items: [
       { href: "/smart-records", icon: Activity, label: "Health Overview", description: "View health data and insights" },
+      { href: "/vitals", icon: BarChart3, label: "Vitals Tracker", description: "Track BP, sugar, weight trends" },
       { href: "/timeline", icon: Clock, label: "Health Timeline", description: "Chronological view of all events" },
       { href: "/appointments", icon: CalendarDays, label: "Appointments", description: "Track doctor appointments" },
       { href: "/emergency-card", icon: Heart, label: "Emergency Card", description: "Emergency health info & QR" },
@@ -59,6 +62,7 @@ const menuSections = [
 export default function MorePage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { t } = useLocale();
 
   const handleSignOut = async () => {
     await signOut();
@@ -68,7 +72,7 @@ export default function MorePage() {
 
   return (
     <div>
-      <AppHeader title="More" />
+      <AppHeader title={t("more.title")} />
       <div className="p-4 space-y-4">
         {/* User Info */}
         {user && (
@@ -125,7 +129,7 @@ export default function MorePage() {
               <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
                 <LogOut className="h-4 w-4" />
               </div>
-              <p className="text-sm font-medium">Sign Out</p>
+              <p className="text-sm font-medium">{t("settings.sign_out")}</p>
             </button>
           </CardContent>
         </Card>

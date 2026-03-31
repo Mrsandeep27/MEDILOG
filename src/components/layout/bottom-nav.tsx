@@ -4,17 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Users, FolderOpen, MoreHorizontal, ScanLine } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/lib/i18n/use-locale";
 
 const navItems = [
-  { href: "/home", label: "Home", icon: Home },
-  { href: "/family", label: "Family", icon: Users },
-  { href: "/scan", label: "Scan", icon: ScanLine, isFab: true },
-  { href: "/records", label: "Records", icon: FolderOpen },
-  { href: "/more", label: "More", icon: MoreHorizontal },
+  { href: "/home", labelKey: "nav.home", icon: Home },
+  { href: "/family", labelKey: "nav.family", icon: Users },
+  { href: "/scan", labelKey: "nav.scan", icon: ScanLine, isFab: true },
+  { href: "/records", labelKey: "nav.records", icon: FolderOpen },
+  { href: "/more", labelKey: "nav.more", icon: MoreHorizontal },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { t } = useLocale();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t safe-area-bottom">
@@ -35,7 +37,7 @@ export function BottomNav() {
                   <Icon className="h-6 w-6" />
                 </div>
                 <span className="text-[10px] mt-0.5 font-medium">
-                  {item.label}
+                  {t(item.labelKey)}
                 </span>
               </Link>
             );
@@ -53,7 +55,7 @@ export function BottomNav() {
               )}
             >
               <Icon className="h-5 w-5" />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <span className="text-[10px] font-medium">{t(item.labelKey)}</span>
             </Link>
           );
         })}

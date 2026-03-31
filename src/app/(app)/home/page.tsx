@@ -78,6 +78,7 @@ const shortcutItems = [
   { href: "/appointments", icon: CalendarDays, label: "Appointments" },
   { href: "/emergency-card", icon: AlertTriangle, label: "Emergency Card" },
   { href: "/medicine-checker", icon: Zap, label: "Medicine Checker" },
+  { href: "/vitals", icon: Activity, label: "Vitals Tracker" },
   { href: "/smart-records", icon: Activity, label: "Health Overview" },
   { href: "/health-risk", icon: AlertTriangle, label: "Risk Assessment" },
   { href: "/more/export", icon: Download, label: "Download Report" },
