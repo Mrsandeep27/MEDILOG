@@ -368,7 +368,7 @@ export default function HomePage() {
           {selfMember?.abha_number ? (
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
               <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0">
-                <Shield className="h-5 w-5 text-green-600" />
+                <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-green-800 dark:text-green-300">ABHA Linked</p>
@@ -376,12 +376,12 @@ export default function HomePage() {
                   {selfMember.abha_address || selfMember.abha_number}
                 </p>
               </div>
-              <span className="text-xs text-green-600 font-medium">View &rarr;</span>
+              <span className="text-xs text-green-600 dark:text-green-400 font-medium">View &rarr;</span>
             </div>
           ) : (
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border border-green-200 dark:border-green-800">
               <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0">
-                <Shield className="h-5 w-5 text-green-600" />
+                <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-bold text-green-800 dark:text-green-200">Link ABHA Health ID</p>
@@ -408,7 +408,7 @@ export default function HomePage() {
                 <Card key={i}>
                   <CardContent className="py-2.5 flex items-center gap-3">
                     <div className="h-9 w-9 rounded-full bg-blue-50 dark:bg-blue-950 flex items-center justify-center shrink-0">
-                      <Calendar className="h-4 w-4 text-blue-600" />
+                      <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{apt.doctor_name}</p>
@@ -428,7 +428,7 @@ export default function HomePage() {
         <Card className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
           <CardContent className="py-3 flex items-start gap-3">
             <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center shrink-0 mt-0.5">
-              <Lightbulb className="h-4 w-4 text-amber-600" />
+              <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
               <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">Health Tip</p>
@@ -525,11 +525,11 @@ export default function HomePage() {
                   className="flex items-center gap-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800"
                 >
                   <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center">
-                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                    <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
                   </div>
                   <div>
                     <span className="text-sm font-bold text-red-700 dark:text-red-400">Emergency Card</span>
-                    <p className="text-[10px] text-red-500">Blood group, allergies, contacts</p>
+                    <p className="text-[10px] text-red-500 dark:text-red-400">Blood group, allergies, contacts</p>
                   </div>
                 </Link>
               )}

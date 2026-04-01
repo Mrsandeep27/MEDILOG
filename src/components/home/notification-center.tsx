@@ -40,10 +40,10 @@ const bgMap = {
 };
 
 const colorMap = {
-  reminder: "text-blue-600",
-  appointment: "text-purple-600",
-  record: "text-green-600",
-  alert: "text-red-600",
+  reminder: "text-blue-600 dark:text-blue-400",
+  appointment: "text-purple-600 dark:text-purple-400",
+  record: "text-green-600 dark:text-green-400",
+  alert: "text-red-600 dark:text-red-400",
 };
 
 export function NotificationCenter() {
