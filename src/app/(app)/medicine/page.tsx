@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AppHeader } from "@/components/layout/app-header";
 import { useCamera } from "@/hooks/use-camera";
+import { useLocale } from "@/lib/i18n/use-locale";
 import { toast } from "sonner";
 
 interface MedicineInfo {
@@ -55,6 +56,8 @@ interface ChatMessage {
 }
 
 export default function MedicinePage() {
+  const { locale, t } = useLocale();
+  const isHindi = locale === "hi";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const { videoRef, isActive, start, stop, captureAsync, error: cameraError } = useCamera();
@@ -66,7 +69,6 @@ export default function MedicinePage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatting, setIsChatting] = useState(false);
-  const [isHindi, setIsHindi] = useState(false);
 
   const processImage = async (imageDataUrl: string) => {
     setIsAnalyzing(true);
@@ -82,7 +84,7 @@ export default function MedicinePage() {
       const res = await fetch("/api/medicine-info", {
         method: "POST",
         headers,
-        body: JSON.stringify({ image: compressed }),
+        body: JSON.stringify({ image: compressed, locale }),
       });
 
       if (!res.ok) {
@@ -154,7 +156,6 @@ export default function MedicinePage() {
     }, 5000);
 
     try {
-      const langHint = isHindi ? " Answer ONLY in Hindi (Devanagari script)." : "";
       const { createClient } = await import("@/lib/supabase/client");
       const { data: { session } } = await createClient().auth.getSession();
       const chatHeaders: Record<string, string> = { "Content-Type": "application/json" };
@@ -165,7 +166,8 @@ export default function MedicinePage() {
         headers: chatHeaders,
         body: JSON.stringify({
           action: "chat",
-          question: question + langHint,
+          question,
+          locale,
           context: {
             name: medicineInfo.name,
             generic_name: medicineInfo.generic_name,
@@ -233,7 +235,7 @@ export default function MedicinePage() {
   if (isActive) {
     return (
       <div>
-        <AppHeader title="Scan Medicine" showBack />
+        <AppHeader title={t("medicine.scan_medicine")} showBack />
         <div className="relative bg-black" style={{ height: "calc(100vh - 8rem)" }}>
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
           <div className="absolute inset-0 pointer-events-none">
@@ -265,7 +267,7 @@ export default function MedicinePage() {
 
   return (
     <div>
-      <AppHeader title="Medicine Info" showBack />
+      <AppHeader title={t("medicine.title")} showBack />
       <div className="p-4 space-y-4">
         {/* Upload Section — show when no medicine identified yet */}
         {!medicineInfo && !isAnalyzing && (
@@ -289,7 +291,7 @@ export default function MedicinePage() {
               >
                 <CardContent className="flex flex-col items-center py-8">
                   <Camera className="h-8 w-8 text-primary mb-2" />
-                  <span className="text-sm font-medium">Take Photo</span>
+                  <span className="text-sm font-medium">{t("scan.take_photo")}</span>
                 </CardContent>
               </Card>
 
@@ -299,7 +301,7 @@ export default function MedicinePage() {
               >
                 <CardContent className="flex flex-col items-center py-8">
                   <Upload className="h-8 w-8 text-primary mb-2" />
-                  <span className="text-sm font-medium">Upload Photo</span>
+                  <span className="text-sm font-medium">{t("medicine.upload_photo")}</span>
                 </CardContent>
               </Card>
             </div>
@@ -327,7 +329,7 @@ export default function MedicinePage() {
               </div>
             )}
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Identifying medicine...</p>
+            <p className="text-sm text-muted-foreground">{t("medicine.identifying")}</p>
           </div>
         )}
 
@@ -378,7 +380,7 @@ export default function MedicinePage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Pill className="h-4 w-4 text-green-600" />
-                    What it&apos;s used for
+                    {t("medicine.uses")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -400,7 +402,7 @@ export default function MedicinePage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Info className="h-4 w-4 text-blue-600" />
-                    How to take
+                    {t("medicine.how_to_take")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -419,10 +421,10 @@ export default function MedicinePage() {
                   >
                     <span className="text-sm font-semibold flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                      Side Effects
+                      {t("medicine.side_effects")}
                     </span>
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      {showAllSideEffects ? "Hide" : "Tap to view"}
+                      {showAllSideEffects ? t("ai_doctor.hide_details") : t("medicine.tap_to_view")}
                       {showAllSideEffects ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                     </span>
                   </button>
@@ -439,7 +441,7 @@ export default function MedicinePage() {
                       {medicineInfo.serious_side_effects && medicineInfo.serious_side_effects.length > 0 && (
                         <div className="bg-red-50 dark:bg-red-950 p-2 rounded-lg">
                           <p className="text-xs font-medium text-red-700 dark:text-red-400 mb-1">
-                            Serious (consult doctor immediately):
+                            {t("medicine.serious_side_effects")}:
                           </p>
                           {medicineInfo.serious_side_effects.map((se, i) => (
                             <p key={i} className="text-xs text-red-600 dark:text-red-400">• {se}</p>
@@ -464,17 +466,17 @@ export default function MedicinePage() {
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="bg-muted rounded-lg p-2">
                     <Baby className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-                    <p className="text-[10px] text-muted-foreground">Pregnancy</p>
+                    <p className="text-[10px] text-muted-foreground">{t("medicine.pregnancy")}</p>
                     <p className="text-xs font-medium">{medicineInfo.pregnancy_safe || "Ask doctor"}</p>
                   </div>
                   <div className="bg-muted rounded-lg p-2">
                     <Wine className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-                    <p className="text-[10px] text-muted-foreground">Alcohol</p>
+                    <p className="text-[10px] text-muted-foreground">{t("medicine.alcohol")}</p>
                     <p className="text-xs font-medium">{medicineInfo.alcohol_safe || "Ask doctor"}</p>
                   </div>
                   <div className="bg-muted rounded-lg p-2">
                     <ShieldAlert className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-                    <p className="text-[10px] text-muted-foreground">Habit forming</p>
+                    <p className="text-[10px] text-muted-foreground">{t("medicine.habit_forming")}</p>
                     <p className="text-xs font-medium">{medicineInfo.habit_forming || "No"}</p>
                   </div>
                 </div>
@@ -486,7 +488,7 @@ export default function MedicinePage() {
               <Card className="border-yellow-200 dark:border-yellow-900">
                 <CardContent className="py-3">
                   <p className="text-xs font-medium text-yellow-700 dark:text-yellow-400 mb-1.5 flex items-center gap-1">
-                    <AlertTriangle className="h-3.5 w-3.5" /> Warnings
+                    <AlertTriangle className="h-3.5 w-3.5" /> {t("medicine.warnings")}
                   </p>
                   {medicineInfo.warnings.map((w, i) => (
                     <p key={i} className="text-xs text-muted-foreground">• {w}</p>
@@ -500,7 +502,7 @@ export default function MedicinePage() {
               <Card className="border-green-200 dark:border-green-900 bg-green-50/50 dark:bg-green-950/30">
                 <CardContent className="py-3">
                   <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-1 flex items-center gap-1">
-                    <IndianRupee className="h-3.5 w-3.5" /> Cheaper Alternative
+                    <IndianRupee className="h-3.5 w-3.5" /> {t("medicine.generic_alt")}
                   </p>
                   <p className="text-sm font-medium">{medicineInfo.generic_alternative.name}</p>
                   {medicineInfo.generic_alternative.approx_price && (
@@ -515,22 +517,10 @@ export default function MedicinePage() {
             {/* Chat Section */}
             <Card>
               <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-primary" />
-                    {isHindi ? "दवाई के बारे में पूछें" : "Ask about this medicine"}
-                  </CardTitle>
-                  <button
-                    onClick={() => setIsHindi(!isHindi)}
-                    className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
-                      isHindi
-                        ? "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900 dark:text-orange-300"
-                        : "bg-muted text-muted-foreground border-border"
-                    }`}
-                  >
-                    {isHindi ? "हिंदी ✓" : "अ Hindi"}
-                  </button>
-                </div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-primary" />
+                  {t("medicine.ask_question")}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {/* Suggested Questions */}
@@ -582,7 +572,7 @@ export default function MedicinePage() {
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleChat()}
-                    placeholder="Ask anything about this medicine..."
+                    placeholder={t("medicine.ask_question")}
                     className="text-sm"
                     disabled={isChatting}
                   />

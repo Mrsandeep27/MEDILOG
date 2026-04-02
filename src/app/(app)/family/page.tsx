@@ -8,19 +8,21 @@ import { MemberCard } from "@/components/family/member-card";
 import { EmptyState } from "@/components/common/empty-state";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
 import { useMembers } from "@/hooks/use-members";
+import { useLocale } from "@/lib/i18n/use-locale";
 
 export default function FamilyPage() {
   const { members, isLoading } = useMembers();
+  const { t } = useLocale();
 
   return (
     <div>
       <AppHeader
-        title="Family"
+        title={t("family.title")}
         rightAction={
           <Link href="/family/add">
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1" />
-              Add
+              {t("family.add")}
             </Button>
           </Link>
         }
@@ -32,9 +34,9 @@ export default function FamilyPage() {
         ) : members.length === 0 ? (
           <EmptyState
             icon={Users}
-            title="No family members"
-            description="Add your family members to manage their health records"
-            actionLabel="Add Family Member"
+            title={t("family.no_members")}
+            description={t("family.no_members_desc")}
+            actionLabel={t("family.add_member")}
             onAction={() => (window.location.href = "/family/add")}
           />
         ) : (

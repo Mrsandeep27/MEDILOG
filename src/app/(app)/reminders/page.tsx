@@ -41,6 +41,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
 import { useReminders } from "@/hooks/use-reminders";
 import { useMembers } from "@/hooks/use-members";
+import { useLocale } from "@/lib/i18n/use-locale";
 import type { DayOfWeek, ReminderLog } from "@/lib/db/schema";
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
@@ -83,6 +84,7 @@ function getStreak(logs: ReminderLog[]): number {
 }
 
 export default function RemindersPage() {
+  const { t } = useLocale();
   const { reminders, todayReminders, isLoading, addReminder, toggleReminder, deleteReminder, logReminder } =
     useReminders();
   const { members } = useMembers();
@@ -206,22 +208,22 @@ export default function RemindersPage() {
   return (
     <div>
       <AppHeader
-        title="Reminders"
+        title={t("reminders.title")}
         rightAction={
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger
               render={<Button size="sm" />}
             >
               <Plus className="h-4 w-4 mr-1" />
-              Add
+              {t("common.add")}
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>New Reminder</DialogTitle>
+                <DialogTitle>{t("reminders.add")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Medicine Name *</Label>
+                  <Label>{t("reminders.medicine_name")} *</Label>
                   <Input
                     value={newMedicineName}
                     onChange={(e) => setNewMedicineName(e.target.value)}
@@ -229,7 +231,7 @@ export default function RemindersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Family Member *</Label>
+                  <Label>{t("home.family_members")} *</Label>
                   <Select value={newMemberId} onValueChange={(v) => setNewMemberId(v || "")}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select member" />
@@ -243,16 +245,16 @@ export default function RemindersPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label>Time</Label>
+                    <Label>{t("reminders.time")}</Label>
                     <Input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Dosage</Label>
+                    <Label>{t("reminders.dosage")}</Label>
                     <Input value={newDosage} onChange={(e) => setNewDosage(e.target.value)} placeholder="e.g. 500mg" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Days</Label>
+                  <Label>{t("reminders.days")}</Label>
                   <div className="flex gap-1">
                     {ALL_DAYS.map((day) => (
                       <button
@@ -273,10 +275,10 @@ export default function RemindersPage() {
                     className="cursor-pointer"
                     onClick={() => setNewBeforeFood(!newBeforeFood)}
                   >
-                    {newBeforeFood ? "Before food" : "After food"}
+                    {newBeforeFood ? t("reminders.before_food") : t("reminders.after_food")}
                   </Badge>
                 </div>
-                <Button className="w-full" onClick={handleAdd}>Add Reminder</Button>
+                <Button className="w-full" onClick={handleAdd}>{t("reminders.add")}</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -287,14 +289,14 @@ export default function RemindersPage() {
         {/* Tabs */}
         <div className="flex gap-2">
           <Button variant={tab === "today" ? "default" : "outline"} size="sm" onClick={() => setTab("today")}>
-            Today
+            {t("reminders.today")}
           </Button>
           <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")}>
-            All ({reminders.length})
+            {t("reminders.all")} ({reminders.length})
           </Button>
           <Button variant={tab === "stats" ? "default" : "outline"} size="sm" onClick={() => setTab("stats")}>
             <TrendingUp className="h-3.5 w-3.5 mr-1" />
-            Stats
+            {t("reminders.stats")}
           </Button>
         </div>
 
@@ -306,7 +308,7 @@ export default function RemindersPage() {
               <Card>
                 <CardContent className="py-3 text-center">
                   <div className="text-2xl font-bold text-primary">{adherencePercent}%</div>
-                  <p className="text-[10px] text-muted-foreground">Weekly Adherence</p>
+                  <p className="text-[10px] text-muted-foreground">{t("reminders.weekly_adherence")}</p>
                 </CardContent>
               </Card>
               <Card>
@@ -314,7 +316,7 @@ export default function RemindersPage() {
                   <div className="text-2xl font-bold text-amber-500 flex items-center justify-center gap-1">
                     {streak}<Flame className="h-5 w-5" />
                   </div>
-                  <p className="text-[10px] text-muted-foreground">Day Streak</p>
+                  <p className="text-[10px] text-muted-foreground">{t("reminders.day_streak")}</p>
                 </CardContent>
               </Card>
               <Card>
@@ -330,7 +332,7 @@ export default function RemindersPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
-                  Adherence Calendar (28 days)
+                  {t("reminders.adherence_calendar")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -408,9 +410,9 @@ export default function RemindersPage() {
             ) : (displayReminders?.length ?? 0) === 0 ? (
               <EmptyState
                 icon={Bell}
-                title={tab === "today" ? "No reminders for today" : "No reminders"}
-                description="Add medicine reminders to never miss a dose. You can also scan a prescription to auto-create reminders."
-                actionLabel="Add Reminder"
+                title={tab === "today" ? t("reminders.no_today") : t("reminders.no_all")}
+                description=""
+                actionLabel={t("reminders.add")}
                 onAction={() => setShowAddDialog(true)}
               />
             ) : (
@@ -438,7 +440,7 @@ export default function RemindersPage() {
                                 </>
                               )}
                               <span>·</span>
-                              <span>{reminder.before_food ? "Before food" : "After food"}</span>
+                              <span>{reminder.before_food ? t("reminders.before_food") : t("reminders.after_food")}</span>
                             </div>
                             <div className="flex items-center gap-1 mt-1.5">
                               <Badge variant="outline" className="text-[10px]">{reminder.member_name}</Badge>

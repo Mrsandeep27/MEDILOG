@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { text, image } = body;
+    const { text, image, locale } = body;
 
     if (!text && !image) {
       return NextResponse.json({ error: "No report data provided" }, { status: 400 });
@@ -69,6 +69,12 @@ export async function POST(request: NextRequest) {
 
     if (text) {
       parts.push({ text: `\n\nLab Report Text:\n${text}` });
+    }
+
+    if (locale === "hi") {
+      parts.push({ text: "\n\nIMPORTANT: All explanations, advice, summary must be in Hindi (Devanagari script). Marker names can stay in English." });
+    } else {
+      parts.push({ text: "\n\nIMPORTANT: All explanations, advice, summary must be in simple English." });
     }
 
     try {

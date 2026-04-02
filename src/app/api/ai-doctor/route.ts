@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { message, patient, chatHistory } = body;
+    const { message, patient, chatHistory, locale } = body;
 
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
@@ -98,6 +98,12 @@ export async function POST(request: NextRequest) {
         .map((m: { role: string; text: string }) => `${m.role === "user" ? "Patient" : "Dr. MediLog"}: ${m.text}`)
         .join("\n");
       prompt += `\n\nPREVIOUS CONVERSATION:\n${historyText}`;
+    }
+
+    if (locale === "hi") {
+      prompt += "\n\nIMPORTANT: Reply ENTIRELY in Hindi (Devanagari script). All fields including urgency_label, urgency_message, possible_causes, what_to_do, home_remedies, when_to_rush, doctor_type, reply, and follow_up_questions must be in Hindi.";
+    } else {
+      prompt += "\n\nIMPORTANT: Reply in English. All fields should be in simple, easy-to-understand English.";
     }
 
     try {

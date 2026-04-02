@@ -29,32 +29,32 @@ import { Activity as BarChart3 } from "lucide-react";
 
 const menuSections = [
   {
-    title: "Health Tools",
+    titleKey: "more.health_tools",
     items: [
-      { href: "/smart-records", icon: Activity, label: "Health Overview", description: "View health data and insights" },
-      { href: "/vitals", icon: BarChart3, label: "Vitals Tracker", description: "Track BP, sugar, weight trends" },
-      { href: "/timeline", icon: Clock, label: "Health Timeline", description: "Chronological view of all events" },
-      { href: "/appointments", icon: CalendarDays, label: "Appointments", description: "Track doctor appointments" },
-      { href: "/emergency-card", icon: Heart, label: "Emergency Card", description: "Emergency health info & QR" },
-      { href: "/medicine-checker", icon: Zap, label: "Medicine Checker", description: "Check drug interactions" },
-      { href: "/health-risk", icon: AlertTriangle, label: "Risk Assessment", description: "Check health risk factors" },
-      { href: "/badges", icon: Award, label: "Health Badges", description: "Track your achievements" },
-      { href: "/more/export", icon: Download, label: "Download Report", description: "Export health report as PDF" },
+      { href: "/smart-records", icon: Activity, labelKey: "more.health_overview" },
+      { href: "/vitals", icon: BarChart3, labelKey: "more.vitals" },
+      { href: "/timeline", icon: Clock, labelKey: "more.timeline" },
+      { href: "/appointments", icon: CalendarDays, labelKey: "more.appointments" },
+      { href: "/emergency-card", icon: Heart, labelKey: "more.emergency_card" },
+      { href: "/medicine-checker", icon: Zap, labelKey: "more.medicine_checker" },
+      { href: "/health-risk", icon: AlertTriangle, labelKey: "more.risk_assessment" },
+      { href: "/badges", icon: Award, labelKey: "more.badges" },
+      { href: "/more/export", icon: Download, labelKey: "more.download_report" },
     ],
   },
   {
-    title: "Sharing",
+    titleKey: "more.sharing",
     items: [
-      { href: "/more/shared-links", icon: Share2, label: "Share with Doctor", description: "Manage active sharing links" },
-      { href: "/abha", icon: Shield, label: "ABHA Health ID", description: "Link your Ayushman Bharat ID" },
-      { href: "/more/family-group", icon: Users, label: "Family Group", description: "Share records across devices" },
+      { href: "/more/shared-links", icon: Share2, labelKey: "more.share_doctor" },
+      { href: "/abha", icon: Shield, labelKey: "more.abha" },
+      { href: "/more/family-group", icon: Users, labelKey: "more.family_group" },
     ],
   },
   {
-    title: "Account",
+    titleKey: "more.account",
     items: [
-      { href: "/more/settings", icon: Settings, label: "Settings", description: "Theme, language, PIN, notifications" },
-      { href: "/more/feedback", icon: MessageSquare, label: "Feedback", description: "Report bugs or suggest features" },
+      { href: "/more/settings", icon: Settings, labelKey: "more.settings" },
+      { href: "/more/feedback", icon: MessageSquare, labelKey: "more.feedback" },
     ],
   },
 ];
@@ -94,8 +94,8 @@ export default function MorePage() {
         )}
 
         {menuSections.map((section) => (
-          <div key={section.title}>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-2">{section.title}</p>
+          <div key={section.titleKey}>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-2">{t(section.titleKey)}</p>
             <Card>
               <CardContent className="p-0">
                 {section.items.map((item, index) => (
@@ -106,8 +106,7 @@ export default function MorePage() {
                           <item.icon className="h-4 w-4" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{item.label}</p>
-                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                          <p className="text-sm font-medium">{t(item.labelKey)}</p>
                         </div>
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </div>

@@ -31,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import { AppHeader } from "@/components/layout/app-header";
 import { useMembers } from "@/hooks/use-members";
 import { useMedicines } from "@/hooks/use-medicines";
+import { useLocale } from "@/lib/i18n/use-locale";
 import { toast } from "sonner";
 
 interface AIResponse {
@@ -66,10 +67,12 @@ export default function AIDoctorPage() {
   const { medicines } = useMedicines(selectedMemberId || undefined);
   const selectedMember = members.find((m) => m.id === selectedMemberId);
 
+  const { locale, t } = useLocale();
+  const isHindi = locale === "hi";
+
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isHindi, setIsHindi] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -108,7 +111,6 @@ export default function AIDoctorPage() {
     }, 5000);
 
     try {
-      const langHint = isHindi ? " Reply ONLY in Hindi (Devanagari script)." : "";
       const activeMeds = medicines.filter((m) => m.is_active).map((m) => m.name);
 
       const { createClient } = await import("@/lib/supabase/client");
@@ -121,7 +123,8 @@ export default function AIDoctorPage() {
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({
-          message: msg + langHint,
+          message: msg,
+          locale,
           patient: selectedMember ? {
             name: selectedMember.name,
             date_of_birth: selectedMember.date_of_birth,
@@ -147,7 +150,7 @@ export default function AIDoctorPage() {
         const err = await res.json().catch(() => ({}));
         setMessages((prev) => [...prev, {
           role: "ai",
-          text: err.error || "Sorry, couldn't process your request. Please try again.",
+          text: err.error || t("ai_doctor.error"),
         }]);
       }
     } catch {
@@ -155,7 +158,7 @@ export default function AIDoctorPage() {
       setMessages((prev) => prev.filter((m) => !m.text.includes("Analyzing")));
       setMessages((prev) => [...prev, {
         role: "ai",
-        text: "Network error. Please check your internet connection.",
+        text: t("ai_doctor.network_error"),
       }]);
     } finally {
       setIsLoading(false);
@@ -163,21 +166,22 @@ export default function AIDoctorPage() {
     }
   };
 
-  const quickPrompts = isHindi
-    ? ["बुखार और सिरदर्द है", "पेट में दर्द हो रहा है", "खांसी और गला खराब", "बच्चे को बुखार है", "बीपी बढ़ गया है", "शुगर कितनी होनी चाहिए?"]
-    : ["Fever and headache since 2 days", "Stomach pain after eating", "Cough and sore throat", "My child has high fever", "Feeling chest pain", "What to do for high BP?"];
+  const quickPrompts = [
+    t("prompt.fever"), t("prompt.stomach"), t("prompt.cough"),
+    t("prompt.child_fever"), t("prompt.chest"), t("prompt.bp"),
+  ];
 
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)]">
-      <AppHeader title="AI Health Assistant" showBack />
+      <AppHeader title={t("ai_doctor.title")} showBack />
 
-      {/* Patient Selector + Hindi Toggle */}
+      {/* Patient Selector */}
       <div className="px-4 py-2 border-b flex items-center gap-2">
         <div className="flex-1">
           <Select value={selectedMemberId} onValueChange={(v) => setSelectedMemberId(v || "")}>
             <SelectTrigger className="h-8 text-xs">
               <User className="h-3 w-3 mr-1" />
-              <SelectValue placeholder="Select patient" />
+              <SelectValue placeholder={t("ai_doctor.select_patient")} />
             </SelectTrigger>
             <SelectContent>
               {members.map((m) => (
@@ -186,16 +190,6 @@ export default function AIDoctorPage() {
             </SelectContent>
           </Select>
         </div>
-        <button
-          onClick={() => setIsHindi(!isHindi)}
-          className={`text-xs px-2.5 py-1 rounded-full border font-medium shrink-0 ${
-            isHindi
-              ? "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900 dark:text-orange-300"
-              : "bg-muted text-muted-foreground border-border"
-          }`}
-        >
-          {isHindi ? "हिंदी ✓" : "अ Hindi"}
-        </button>
       </div>
 
       {/* Chat Area */}
@@ -208,18 +202,16 @@ export default function AIDoctorPage() {
             </div>
             <div>
               <h2 className="font-bold text-lg">
-                {isHindi ? "नमस्ते! मैं Dr. MediLog हूँ" : "Hi! I'm Dr. MediLog"}
+                {t("ai_doctor.welcome")}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                {isHindi
-                  ? "अपने लक्षण बताइए, मैं बताऊंगा क्या करना चाहिए"
-                  : "Tell me your symptoms, I'll guide you on what to do"}
+                {t("ai_doctor.welcome_desc")}
               </p>
             </div>
 
             {selectedMember && (
               <div className="text-xs text-muted-foreground bg-muted p-2 rounded-lg inline-block">
-                Patient: {selectedMember.name}
+                {t("ai_doctor.patient")}: {selectedMember.name}
                 {selectedMember.allergies.length > 0 && ` | Allergies: ${selectedMember.allergies.join(", ")}`}
               </div>
             )}
@@ -237,9 +229,7 @@ export default function AIDoctorPage() {
             </div>
 
             <p className="text-[10px] text-muted-foreground px-8">
-              {isHindi
-                ? "⚠️ यह AI सलाह है, डॉक्टर की जगह नहीं। गंभीर स्थिति में तुरंत डॉक्टर से मिलें।"
-                : "⚠️ AI guidance only — not a substitute for a real doctor. For emergencies, visit a hospital immediately."}
+              {t("ai_doctor.disclaimer")}
             </p>
           </div>
         )}
@@ -283,7 +273,7 @@ export default function AIDoctorPage() {
                   className="text-xs text-primary flex items-center gap-1 ml-2"
                 >
                   {expandedCards.has(idx) ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                  {expandedCards.has(idx) ? "Hide details" : "Show details (causes, remedies, medicines)"}
+                  {expandedCards.has(idx) ? t("ai_doctor.hide_details") : t("ai_doctor.show_details")}
                 </button>
 
                 {expandedCards.has(idx) && (
@@ -292,7 +282,7 @@ export default function AIDoctorPage() {
                     {msg.data.possible_causes.length > 0 && (
                       <Card>
                         <CardContent className="py-2.5">
-                          <p className="text-xs font-semibold mb-1">🔍 Possible Causes</p>
+                          <p className="text-xs font-semibold mb-1">🔍 {t("ai_doctor.possible_causes")}</p>
                           {msg.data.possible_causes.map((c, i) => (
                             <p key={i} className="text-xs text-muted-foreground">• {c}</p>
                           ))}
@@ -304,7 +294,7 @@ export default function AIDoctorPage() {
                     {msg.data.what_to_do.length > 0 && (
                       <Card>
                         <CardContent className="py-2.5">
-                          <p className="text-xs font-semibold mb-1">✅ What to Do</p>
+                          <p className="text-xs font-semibold mb-1">✅ {t("ai_doctor.what_to_do")}</p>
                           {msg.data.what_to_do.map((d, i) => (
                             <p key={i} className="text-xs text-muted-foreground">{i + 1}. {d}</p>
                           ))}
@@ -317,7 +307,7 @@ export default function AIDoctorPage() {
                       <Card className="border-green-200 dark:border-green-800">
                         <CardContent className="py-2.5">
                           <p className="text-xs font-semibold mb-1 flex items-center gap-1">
-                            <Home className="h-3 w-3 text-green-600" /> Home Remedies
+                            <Home className="h-3 w-3 text-green-600" /> {t("ai_doctor.home_remedies")}
                           </p>
                           {msg.data.home_remedies.map((r, i) => (
                             <p key={i} className="text-xs text-muted-foreground">• {r}</p>
@@ -331,7 +321,7 @@ export default function AIDoctorPage() {
                       <Card className="border-blue-200 dark:border-blue-800">
                         <CardContent className="py-2.5">
                           <p className="text-xs font-semibold mb-1 flex items-center gap-1">
-                            <Pill className="h-3 w-3 text-blue-600" /> OTC Medicines
+                            <Pill className="h-3 w-3 text-blue-600" /> {t("ai_doctor.otc_medicines")}
                           </p>
                           {msg.data.otc_medicines.map((m, i) => (
                             <div key={i} className="mb-1.5 last:mb-0">
@@ -351,7 +341,7 @@ export default function AIDoctorPage() {
                       <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950">
                         <CardContent className="py-2.5">
                           <p className="text-xs font-semibold mb-1 text-red-700 dark:text-red-400 flex items-center gap-1">
-                            <Siren className="h-3 w-3" /> Go to Hospital If
+                            <Siren className="h-3 w-3" /> {t("ai_doctor.go_hospital")}
                           </p>
                           {msg.data.when_to_rush.map((r, i) => (
                             <p key={i} className="text-xs text-red-600 dark:text-red-400">• {r}</p>
@@ -364,7 +354,7 @@ export default function AIDoctorPage() {
                     {msg.data.doctor_type && (
                       <div className="text-xs bg-muted p-2 rounded-lg flex items-center gap-1.5">
                         <Heart className="h-3 w-3 text-primary" />
-                        <span>See: <strong>{msg.data.doctor_type}</strong></span>
+                        <span>{t("ai_doctor.see_doctor")}: <strong>{msg.data.doctor_type}</strong></span>
                       </div>
                     )}
                   </div>
@@ -397,7 +387,7 @@ export default function AIDoctorPage() {
         {isLoading && (
           <div className="flex items-center gap-2 text-muted-foreground px-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-xs">{isHindi ? "जवाब तैयार हो रहा है..." : "Dr. MediLog is thinking..."}</span>
+            <span className="text-xs">{t("ai_doctor.thinking")}</span>
           </div>
         )}
 
@@ -411,7 +401,7 @@ export default function AIDoctorPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder={isHindi ? "अपने लक्षण बताइए..." : "Describe your symptoms..."}
+          placeholder={t("ai_doctor.placeholder")}
           className="text-sm"
           disabled={isLoading}
         />

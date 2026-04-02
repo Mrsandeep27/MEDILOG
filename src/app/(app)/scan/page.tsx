@@ -35,6 +35,7 @@ import {
   type ExtractedMedicine,
 } from "@/lib/ai/extract-prescription";
 import { FREQUENCY_LABELS } from "@/constants/config";
+import { useLocale } from "@/lib/i18n/use-locale";
 
 type ScanStep = "capture" | "processing" | "review" | "saving";
 
@@ -51,6 +52,7 @@ export default function ScanPage() {
     stop,
     captureAsync,
   } = useCamera();
+  const { t } = useLocale();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<ScanStep>("capture");
@@ -82,7 +84,7 @@ export default function ScanPage() {
       }
     } catch (err) {
       console.error("Capture failed:", err);
-      toast.error("Failed to capture image. Please try again.");
+      toast.error(t("scan.capture_failed"));
     }
   };
 
@@ -104,7 +106,7 @@ export default function ScanPage() {
 
     try {
       // Step 1: OCR — extract text (runs in parallel as supplementary context)
-      setStatusText("Reading prescription...");
+      setStatusText(t("scan.reading"));
       setOcrProgress(20);
 
       let ocrText = "";
@@ -118,7 +120,7 @@ export default function ScanPage() {
       setOcrProgress(50);
 
       // Step 2: AI Vision — send image + OCR text to Gemini
-      setStatusText("AI is analyzing the prescription...");
+      setStatusText(t("scan.analyzing"));
       setOcrProgress(70);
 
       const result = await extractPrescription(ocrText, image);
@@ -133,7 +135,7 @@ export default function ScanPage() {
       setStep("review");
 
       if (result.medicines.length === 0) {
-        toast.info("No medicines detected. You can add them manually.");
+        toast.info(t("scan.no_medicines_detected"));
       }
 
       if (members.length === 1) {
@@ -141,7 +143,7 @@ export default function ScanPage() {
       }
     } catch (err) {
       console.error("Processing failed:", err);
-      toast.error("Processing failed. Please try again.");
+      toast.error(t("scan.failed"));
       resetScan();
     } finally {
       setIsProcessing(false);
@@ -161,7 +163,7 @@ export default function ScanPage() {
 
   const handleSave = async () => {
     if (!selectedMemberId) {
-      toast.error("Please select a family member");
+      toast.error(t("scan.select_member"));
       return;
     }
     if (!extraction || !capturedImage) return;
@@ -233,7 +235,7 @@ export default function ScanPage() {
   if (step === "capture") {
     return (
       <div>
-        <AppHeader title="Scan Prescription" showBack />
+        <AppHeader title={t("scan.title")} showBack />
 
         {/* Full camera viewfinder */}
         <div className="relative bg-black" style={{ height: "calc(100vh - 8rem)" }}>
@@ -253,7 +255,7 @@ export default function ScanPage() {
                   <div className="h-20 w-20 rounded-full bg-white/10 flex items-center justify-center mx-auto">
                     <Upload className="h-10 w-10 text-white/70" />
                   </div>
-                  <p className="text-white text-base font-medium">No camera available</p>
+                  <p className="text-white text-base font-medium">{t("scan.no_camera")}</p>
                   <p className="text-white/50 text-xs">{cameraError}</p>
                   <Button
                     size="lg"
@@ -261,16 +263,16 @@ export default function ScanPage() {
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Upload className="h-4 w-4 mr-2" />
-                    Upload Prescription Photo
+                    {t("scan.upload_photo")}
                   </Button>
                   <Button size="sm" variant="ghost" className="text-white/50" onClick={start}>
-                    Retry Camera
+                    {t("scan.retry_camera")}
                   </Button>
                 </div>
               ) : (
                 <>
                   <Loader2 className="h-8 w-8 animate-spin text-white mb-3" />
-                  <p className="text-white/70 text-sm">Opening camera...</p>
+                  <p className="text-white/70 text-sm">{t("scan.opening_camera")}</p>
                 </>
               )}
             </div>
@@ -287,7 +289,7 @@ export default function ScanPage() {
             {/* Hint text */}
             <div className="absolute top-10 left-0 right-0 text-center">
               <span className="bg-black/50 text-white text-xs px-3 py-1 rounded-full">
-                Point at prescription & tap capture
+                {t("scan.point_capture")}
               </span>
             </div>
           </div>
@@ -337,7 +339,7 @@ export default function ScanPage() {
   if (step === "processing") {
     return (
       <div>
-        <AppHeader title="Processing" showBack />
+        <AppHeader title={t("scan.processing")} showBack />
         <div className="p-4 flex flex-col items-center py-20 space-y-6">
           {previewUrl && (
             <div className="w-32 h-40 rounded-lg overflow-hidden border shadow">
@@ -353,7 +355,7 @@ export default function ScanPage() {
             />
           </div>
           <Button variant="ghost" onClick={resetScan}>
-            Cancel
+            {t("scan.cancel")}
           </Button>
         </div>
       </div>
@@ -364,22 +366,22 @@ export default function ScanPage() {
   return (
     <div>
       <AppHeader
-        title="Review Extraction"
+        title={t("scan.review")}
         showBack
         rightAction={
           <Button size="sm" onClick={resetScan} variant="ghost">
             <RotateCcw className="h-4 w-4 mr-1" />
-            Rescan
+            {t("scan.rescan")}
           </Button>
         }
       />
       <div className="p-4 space-y-4">
         {/* Member Selector */}
         <div className="space-y-2">
-          <Label>Save for *</Label>
+          <Label>{t("scan.save_for")} *</Label>
           <Select value={selectedMemberId} onValueChange={(v) => setSelectedMemberId(v || "")}>
             <SelectTrigger>
-              <SelectValue placeholder="Select family member" />
+              <SelectValue placeholder={t("scan.select_member")} />
             </SelectTrigger>
             <SelectContent>
               {members.map((m) => (
@@ -395,36 +397,36 @@ export default function ScanPage() {
         {extraction && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Prescription Details</CardTitle>
+              <CardTitle className="text-base">{t("scan.prescription_details")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {extraction.doctor_name && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Doctor</span>
+                  <span className="text-muted-foreground">{t("scan.doctor")}</span>
                   <span className="font-medium">Dr. {extraction.doctor_name}</span>
                 </div>
               )}
               {extraction.hospital_name && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Hospital</span>
+                  <span className="text-muted-foreground">{t("scan.hospital")}</span>
                   <span className="font-medium">{extraction.hospital_name}</span>
                 </div>
               )}
               {extraction.visit_date && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Date</span>
+                  <span className="text-muted-foreground">{t("scan.date")}</span>
                   <span className="font-medium">{extraction.visit_date}</span>
                 </div>
               )}
               {extraction.diagnosis && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Diagnosis</span>
+                  <span className="text-muted-foreground">{t("scan.diagnosis")}</span>
                   <span className="font-medium">{extraction.diagnosis}</span>
                 </div>
               )}
               {extraction.vitals && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Vitals</span>
+                  <span className="text-muted-foreground">{t("scan.vitals")}</span>
                   <span className="font-medium">{extraction.vitals}</span>
                 </div>
               )}
@@ -436,7 +438,7 @@ export default function ScanPage() {
         {extraction?.instructions && extraction.instructions.length > 0 && (
           <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/50">
             <CardContent className="py-3">
-              <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1.5">Instructions</p>
+              <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1.5">{t("scan.instructions")}</p>
               <ul className="space-y-1">
                 {extraction.instructions.map((inst, i) => (
                   <li key={i} className="text-sm flex items-start gap-2">
@@ -454,7 +456,7 @@ export default function ScanPage() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
-                Medicines ({editedMedicines.length})
+                {t("scan.medicines")} ({editedMedicines.length})
               </CardTitle>
               <Button size="sm" variant="outline" onClick={addEmptyMedicine}>
                 + Add
@@ -468,7 +470,7 @@ export default function ScanPage() {
                   <Input
                     value={med.name}
                     onChange={(e) => updateMedicine(i, "name", e.target.value)}
-                    placeholder="Medicine name"
+                    placeholder={t("scan.medicine_name")}
                     className="font-medium h-8 text-sm"
                   />
                   <button
@@ -482,13 +484,13 @@ export default function ScanPage() {
                   <Input
                     value={med.dosage || ""}
                     onChange={(e) => updateMedicine(i, "dosage", e.target.value)}
-                    placeholder="Dosage (e.g. 500mg)"
+                    placeholder={t("scan.dosage")}
                     className="h-8 text-xs"
                   />
                   <Input
                     value={med.duration || ""}
                     onChange={(e) => updateMedicine(i, "duration", e.target.value)}
-                    placeholder="Duration (e.g. 5 days)"
+                    placeholder={t("scan.duration")}
                     className="h-8 text-xs"
                   />
                 </div>
@@ -498,7 +500,7 @@ export default function ScanPage() {
                     onValueChange={(v) => updateMedicine(i, "frequency", v || "")}
                   >
                     <SelectTrigger className="h-8 text-xs flex-1">
-                      <SelectValue placeholder="Frequency" />
+                      <SelectValue placeholder={t("scan.frequency")} />
                     </SelectTrigger>
                     <SelectContent>
                       {Object.entries(FREQUENCY_LABELS).map(([val, label]) => (
@@ -513,14 +515,14 @@ export default function ScanPage() {
                     className="cursor-pointer shrink-0 text-xs"
                     onClick={() => updateMedicine(i, "before_food", !med.before_food)}
                   >
-                    {med.before_food ? "Before food" : "After food"}
+                    {med.before_food ? t("scan.before_food") : t("scan.after_food")}
                   </Badge>
                 </div>
               </div>
             ))}
             {editedMedicines.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
-                No medicines extracted. Add manually if needed.
+                {t("scan.no_medicines")}
               </p>
             )}
           </CardContent>
@@ -536,12 +538,12 @@ export default function ScanPage() {
           {step === "saving" ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Saving...
+              {t("scan.saving")}
             </>
           ) : (
             <>
               <Check className="h-4 w-4 mr-2" />
-              Save Prescription
+              {t("scan.save")}
             </>
           )}
         </Button>

@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AppHeader } from "@/components/layout/app-header";
+import { useLocale } from "@/lib/i18n/use-locale";
 import { toast } from "sonner";
 
 interface LabMarker {
@@ -37,14 +38,15 @@ interface LabInsight {
   urgent_attention?: string[];
 }
 
-const statusConfig = {
-  normal: { color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", icon: CheckCircle2, label: "Normal" },
-  low: { color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200", icon: ArrowDown, label: "Low" },
-  high: { color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200", icon: ArrowUp, label: "High" },
-  critical: { color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", icon: ShieldAlert, label: "Critical" },
+const statusColors = {
+  normal: { color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", icon: CheckCircle2, labelKey: "lab.normal" },
+  low: { color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200", icon: ArrowDown, labelKey: "lab.low" },
+  high: { color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200", icon: ArrowUp, labelKey: "lab.high" },
+  critical: { color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", icon: ShieldAlert, labelKey: "lab.critical" },
 };
 
 export default function LabInsightsPage() {
+  const { locale, t } = useLocale();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export default function LabInsightsPage() {
           "Content-Type": "application/json",
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ image: payload }),
+        body: JSON.stringify({ image: payload, locale }),
       });
 
       if (!res.ok) {
@@ -123,7 +125,7 @@ export default function LabInsightsPage() {
 
   return (
     <div>
-      <AppHeader title="Lab Report Insights" showBack />
+      <AppHeader title={t("lab.title")} showBack />
       <div className="p-4 space-y-4">
         {/* Upload Section */}
         {!insights && !isAnalyzing && (
@@ -148,9 +150,9 @@ export default function LabInsightsPage() {
                 <div className="rounded-full bg-primary/10 p-6 mb-4">
                   <Upload className="h-10 w-10 text-primary" />
                 </div>
-                <h3 className="font-semibold text-lg mb-1">Upload Lab Report</h3>
+                <h3 className="font-semibold text-lg mb-1">{t("lab.upload")}</h3>
                 <p className="text-sm text-muted-foreground text-center">
-                  Upload a photo or PDF of your blood test, thyroid, sugar, or any lab report
+                  {t("lab.upload_desc")}
                 </p>
               </CardContent>
             </Card>
@@ -178,7 +180,7 @@ export default function LabInsightsPage() {
               </div>
             )}
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Analyzing your lab report...</p>
+            <p className="text-sm text-muted-foreground">{t("lab.analyzing")}</p>
             <p className="text-xs text-muted-foreground">Reading markers and checking ranges</p>
           </div>
         )}
@@ -221,7 +223,7 @@ export default function LabInsightsPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <ShieldAlert className="h-4 w-4 text-red-600" />
                     <p className="text-sm font-semibold text-red-700 dark:text-red-400">
-                      Needs Immediate Attention
+                      {t("lab.urgent")}
                     </p>
                   </div>
                   {insights.urgent_attention.map((item, i) => (
@@ -245,13 +247,13 @@ export default function LabInsightsPage() {
               <div className="grid grid-cols-4 gap-2">
                 {["normal", "low", "high", "critical"].map((status) => {
                   const count = insights.markers.filter((m) => m.status === status).length;
-                  const config = statusConfig[status as keyof typeof statusConfig];
+                  const config = statusColors[status as keyof typeof statusColors];
                   const Icon = config.icon;
                   return (
                     <div key={status} className={`rounded-lg p-2 text-center ${config.color}`}>
                       <Icon className="h-4 w-4 mx-auto mb-0.5" />
                       <p className="text-lg font-bold">{count}</p>
-                      <p className="text-[10px]">{config.label}</p>
+                      <p className="text-[10px]">{t(config.labelKey)}</p>
                     </div>
                   );
                 })}
@@ -261,7 +263,7 @@ export default function LabInsightsPage() {
             {/* Markers List */}
             <div className="space-y-2">
               {insights.markers.map((marker, i) => {
-                const config = statusConfig[marker.status] || statusConfig.normal;
+                const config = statusColors[marker.status] || statusColors.normal;
                 const Icon = config.icon;
                 return (
                   <Card key={i}>
@@ -270,13 +272,13 @@ export default function LabInsightsPage() {
                         <h4 className="text-sm font-semibold">{marker.name}</h4>
                         <Badge className={`${config.color} text-[10px] gap-1`}>
                           <Icon className="h-3 w-3" />
-                          {config.label}
+                          {t(config.labelKey)}
                         </Badge>
                       </div>
                       <div className="flex items-baseline gap-2 mb-1.5">
                         <span className="text-lg font-bold">{marker.value}</span>
                         <span className="text-xs text-muted-foreground">
-                          (Normal: {marker.normal_range})
+                          ({t("lab.normal_range")}: {marker.normal_range})
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground mb-1">{marker.explanation}</p>

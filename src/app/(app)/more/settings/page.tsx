@@ -12,6 +12,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { hashPin } from "@/lib/auth/pin";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
+import { useLocale } from "@/lib/i18n/use-locale";
 
 export default function SettingsPage() {
   const {
@@ -25,12 +26,13 @@ export default function SettingsPage() {
   } = useSettingsStore();
 
   const { theme, setTheme: setNextTheme } = useTheme();
+  const { t } = useLocale();
   const [pinInput, setPinInput] = useState("");
   const [showPinSetup, setShowPinSetup] = useState(false);
 
   const handleSetPin = async () => {
     if (pinInput.length !== 4 || !/^\d{4}$/.test(pinInput)) {
-      toast.error("PIN must be 4 digits");
+      toast.error(t("settings.pin_error"));
       return;
     }
     const hash = await hashPin(pinInput);
@@ -38,42 +40,42 @@ export default function SettingsPage() {
     setPinEnabled(true);
     setPinInput("");
     setShowPinSetup(false);
-    toast.success("PIN lock enabled!");
+    toast.success(t("settings.pin_success"));
   };
 
   const handleDisablePin = () => {
     setPinEnabled(false);
     setPinHash(null);
-    toast.success("PIN lock disabled");
+    toast.success(t("settings.pin_disabled"));
   };
 
   return (
     <div>
-      <AppHeader title="Settings" showBack />
+      <AppHeader title={t("settings.title")} showBack />
       <div className="p-4 space-y-4">
         {/* PIN Lock */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Lock className="h-4 w-4" />
-              App Lock
+              {t("settings.pin_lock")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {pinEnabled ? (
               <div className="flex items-center justify-between">
-                <span className="text-sm">PIN Lock is enabled</span>
+                <span className="text-sm">{t("settings.pin_enabled")}</span>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleDisablePin}
                 >
-                  Disable
+                  {t("settings.pin_disable")}
                 </Button>
               </div>
             ) : showPinSetup ? (
               <div className="space-y-2">
-                <Label>Enter 4-digit PIN</Label>
+                <Label>{t("settings.pin_enter")}</Label>
                 <div className="flex gap-2">
                   <Input
                     type="password"
@@ -87,7 +89,7 @@ export default function SettingsPage() {
                     className="w-24 text-center text-lg tracking-widest"
                   />
                   <Button onClick={handleSetPin} size="sm">
-                    Set PIN
+                    {t("settings.pin_set")}
                   </Button>
                   <Button
                     variant="ghost"
@@ -97,7 +99,7 @@ export default function SettingsPage() {
                       setPinInput("");
                     }}
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </Button>
                 </div>
               </div>
@@ -107,11 +109,11 @@ export default function SettingsPage() {
                 size="sm"
                 onClick={() => setShowPinSetup(true)}
               >
-                Enable PIN Lock
+                {t("settings.pin_enable")}
               </Button>
             )}
             <p className="text-xs text-muted-foreground">
-              Lock the app after 5 minutes of inactivity
+              {t("settings.pin_desc")}
             </p>
           </CardContent>
         </Card>
@@ -121,15 +123,15 @@ export default function SettingsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Bell className="h-4 w-4" />
-              Notifications
+              {t("settings.notifications")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Medicine Reminders</p>
+                <p className="text-sm font-medium">{t("settings.medicine_reminders")}</p>
                 <p className="text-xs text-muted-foreground">
-                  Get notified for medicine reminders
+                  {t("settings.medicine_reminders_desc")}
                 </p>
               </div>
               <Button
@@ -139,7 +141,7 @@ export default function SettingsPage() {
                   setNotificationsEnabled(!notificationsEnabled)
                 }
               >
-                {notificationsEnabled ? "On" : "Off"}
+                {notificationsEnabled ? t("settings.on") : t("settings.off")}
               </Button>
             </div>
           </CardContent>
@@ -150,7 +152,7 @@ export default function SettingsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Palette className="h-4 w-4" />
-              Theme
+              {t("settings.theme")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -161,7 +163,7 @@ export default function SettingsPage() {
                 onClick={() => setNextTheme("light")}
               >
                 <Sun className="h-4 w-4 mr-1" />
-                Light
+                {t("settings.light")}
               </Button>
               <Button
                 variant={theme === "dark" ? "default" : "outline"}
@@ -169,7 +171,7 @@ export default function SettingsPage() {
                 onClick={() => setNextTheme("dark")}
               >
                 <Moon className="h-4 w-4 mr-1" />
-                Dark
+                {t("settings.dark")}
               </Button>
               <Button
                 variant={theme === "system" ? "default" : "outline"}
@@ -177,7 +179,7 @@ export default function SettingsPage() {
                 onClick={() => setNextTheme("system")}
               >
                 <Monitor className="h-4 w-4 mr-1" />
-                System
+                {t("settings.system")}
               </Button>
             </div>
           </CardContent>
@@ -188,7 +190,7 @@ export default function SettingsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Globe className="h-4 w-4" />
-              Language
+              {t("settings.language")}
             </CardTitle>
           </CardHeader>
           <CardContent>

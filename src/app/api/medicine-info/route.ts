@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { image, action, question, context } = body;
+    const { image, action, question, context, locale } = body;
 
     // === CHAT: Follow-up question about a medicine ===
     if (action === "chat") {
@@ -72,7 +72,7 @@ Rules:
 - Mix Hindi and English naturally (how Indians actually talk)
 - If the question is about safety, always add "Please consult your doctor" disclaimer
 - Keep answer concise (2-4 sentences)
-- Be helpful but responsible — don't replace a doctor's advice`;
+- Be helpful but responsible — don't replace a doctor's advice${locale === "hi" ? "\n- Answer in Hindi (Devanagari script)" : "\n- Answer in simple English"}`;
 
       try {
         const answer = await callGemini(
@@ -106,9 +106,13 @@ Rules:
       return NextResponse.json({ error: "Image too large (max 4MB). Please use a smaller photo." }, { status: 400 });
     }
 
+    const langInstruction = locale === "hi"
+      ? "\n\nIMPORTANT: Write ALL text fields (uses, how_to_take, side effects, warnings, summary_hindi) in Hindi (Devanagari script). Medicine name and generic_name can stay in English."
+      : "\n\nIMPORTANT: Write all fields in simple English.";
+
     try {
       const text = await callGemini([
-        { text: MEDICINE_INFO_PROMPT },
+        { text: MEDICINE_INFO_PROMPT + langInstruction },
         { inlineData: { mimeType, data: base64Data } },
       ], { feature: "medicine-info" });
 

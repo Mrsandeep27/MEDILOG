@@ -16,6 +16,7 @@ import { useMembers } from "@/hooks/use-members";
 import { useFamilyStore } from "@/stores/family-store";
 import { RECORD_TYPE_LABELS } from "@/constants/config";
 import type { RecordType } from "@/lib/db/schema";
+import { useLocale } from "@/lib/i18n/use-locale";
 
 export default function RecordsPage() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function RecordsPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<RecordType | "all">("all");
   const [searchResults, setSearchResults] = useState<typeof records | null>(null);
+  const { t } = useLocale();
 
   const memberMap = Object.fromEntries(members.map((m) => [m.id, m.name]));
 
@@ -50,12 +52,12 @@ export default function RecordsPage() {
   return (
     <div>
       <AppHeader
-        title="Health Records"
+        title={t("records.title")}
         rightAction={
           <Link href="/records/add">
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1" />
-              Add
+              {t("common.add")}
             </Button>
           </Link>
         }
@@ -68,7 +70,7 @@ export default function RecordsPage() {
           <Input
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search records, doctors, diagnosis..."
+            placeholder={t("records.search")}
             className="pl-9"
           />
         </div>
@@ -80,7 +82,7 @@ export default function RecordsPage() {
             className="cursor-pointer shrink-0"
             onClick={() => setTypeFilter("all")}
           >
-            All
+            {t("common.all")}
           </Badge>
           {Object.entries(RECORD_TYPE_LABELS).map(([value, label]) => (
             <Badge
@@ -103,8 +105,8 @@ export default function RecordsPage() {
           search ? (
             <EmptyState
               icon={Search}
-              title="No results found"
-              description={`No records matching "${search}"`}
+              title={t("records.no_results")}
+              description={`${t("records.no_results_desc")} "${search}"`}
             />
           ) : (
             <div className="py-8 space-y-4 text-center">
@@ -112,26 +114,26 @@ export default function RecordsPage() {
                 <FileText className="h-8 w-8 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg">No records yet</h3>
+                <h3 className="font-semibold text-lg">{t("records.no_records")}</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Start building your health history
+                  {t("records.no_records_desc")}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2 max-w-xs mx-auto">
                 <Button size="sm" onClick={() => router.push("/scan")}>
-                  Scan Prescription
+                  {t("records.scan_prescription")}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => router.push("/records/add")}>
-                  Add Manually
+                  {t("records.add_manually")}
                 </Button>
               </div>
               <div className="bg-muted rounded-lg p-3 text-left max-w-sm mx-auto">
-                <p className="text-xs font-medium mb-1.5">Quick start guide:</p>
+                <p className="text-xs font-medium mb-1.5">{t("records.quick_start")}</p>
                 <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-                  <li>Scan a prescription with your camera</li>
-                  <li>AI extracts medicines automatically</li>
-                  <li>Set reminders for each medicine</li>
-                  <li>Share records with your doctor via QR</li>
+                  <li>{t("records.step1")}</li>
+                  <li>{t("records.step2")}</li>
+                  <li>{t("records.step3")}</li>
+                  <li>{t("records.step4")}</li>
                 </ol>
               </div>
             </div>
