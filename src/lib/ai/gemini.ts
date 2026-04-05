@@ -47,6 +47,8 @@ interface GeminiOptions {
   userId?: string;
   /** System instruction — separated from user content to prevent prompt injection */
   systemInstruction?: string;
+  /** Force JSON output from Gemini (responseMimeType: application/json) */
+  jsonMode?: boolean;
 }
 
 // Log API usage to database (fire-and-forget)
@@ -83,7 +85,7 @@ export async function callGemini(
 
   const hasImage = parts.some((p) => p.inlineData);
   const models = hasImage ? VISION_MODELS : TEXT_MODELS;
-  const { temperature = 0.1, maxOutputTokens = 2048, feature = "unknown", userId, systemInstruction } = options;
+  const { temperature = 0.1, maxOutputTokens = 2048, feature = "unknown", userId, systemInstruction, jsonMode = false } = options;
 
   let lastError = "";
   const startKeyIndex = currentKeyIndex % apiKeys.length;
@@ -109,7 +111,11 @@ export async function callGemini(
                 system_instruction: { parts: [{ text: systemInstruction }] },
               } : {}),
               contents: [{ parts }],
-              generationConfig: { temperature, maxOutputTokens },
+              generationConfig: {
+                temperature,
+                maxOutputTokens,
+                ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+              },
             }),
           }
         );

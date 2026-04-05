@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
           feature: "extract",
           systemInstruction: VISION_PROMPT,
           userId: authData.user?.id,
+          jsonMode: true,
         });
       } else {
         // ── TEXT-ONLY MODE: Fallback when no image ──
@@ -160,6 +161,7 @@ export async function POST(request: NextRequest) {
             feature: "extract",
             systemInstruction: TEXT_ONLY_PROMPT,
             userId: authData.user?.id,
+            jsonMode: true,
           }
         );
       }

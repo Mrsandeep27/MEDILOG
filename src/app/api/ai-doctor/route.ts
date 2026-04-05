@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     try {
       const response = await callGemini(
         [{ text: prompt }],
-        { temperature: 0.3, maxOutputTokens: 2500, feature: "ai-doctor" }
+        { temperature: 0.3, maxOutputTokens: 2500, feature: "ai-doctor", jsonMode: true }
       );
 
       const parsed = parseJsonResponse(response);

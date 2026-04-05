@@ -114,7 +114,7 @@ Rules:
       const text = await callGemini([
         { text: MEDICINE_INFO_PROMPT + langInstruction },
         { inlineData: { mimeType, data: base64Data } },
-      ], { feature: "medicine-info" });
+      ], { feature: "medicine-info", jsonMode: true });
 
       const parsed = parseJsonResponse(text);
       if (!parsed.name) {
