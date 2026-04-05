@@ -3,10 +3,10 @@ import { cookies } from "next/headers";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
-  if (!secret && process.env.NODE_ENV === "production") {
-    throw new Error("JWT_SECRET environment variable is required in production");
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is required");
   }
-  return secret || "medilog-dev-secret-local-only";
+  return secret;
 }
 
 const TOKEN_EXPIRY = "7d";
@@ -41,7 +41,7 @@ export async function setAuthCookie(token: string): Promise<void> {
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     maxAge: 7 * 24 * 60 * 60,
     path: "/",
   });

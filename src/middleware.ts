@@ -3,6 +3,7 @@ import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/security/rate-limit";
 
 /** Map API path prefixes to rate limit configs */
 function getRateLimitConfig(pathname: string) {
+  if (pathname.startsWith("/api/auth/signup")) return RATE_LIMITS.signup;
   if (pathname.startsWith("/api/auth/")) return RATE_LIMITS.auth;
   if (pathname.startsWith("/api/abha")) return RATE_LIMITS.otp;
   if (pathname.startsWith("/api/ai-doctor")) return RATE_LIMITS.ai;

@@ -65,7 +65,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     // One-time session check — if no session, kick to login
     // Falls back to cached Zustand session when offline
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }: { data: { session: { user: { id: string; email?: string; user_metadata?: Record<string, string> } } | null } }) => {
+    supabase.auth.getSession().then(({ data }: { data: { session: { user: { id: string; email?: string; email_confirmed_at?: string | null; user_metadata?: Record<string, string> } } | null } }) => {
       if (!data.session) {
         // No active session — but check if we're offline with cached auth
         if (!navigator.onLine && useAuthStore.getState().user) {
@@ -74,9 +74,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         }
         window.location.replace("/login");
       } else {
+        const sessionUser = data.session.user;
+
+        // Enforce email verification — unverified users cannot access the app
+        if (!sessionUser.email_confirmed_at) {
+          supabase.auth.signOut();
+          toast.error("Please verify your email before accessing the app.");
+          window.location.replace("/login");
+          return;
+        }
+
         // Sync store with real session — fix stale/missing user data
         const store = useAuthStore.getState();
-        const sessionUser = data.session.user;
         if (!store.user || store.user.id !== sessionUser.id) {
           store.setUser({
             id: sessionUser.id,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,7 +17,11 @@ import { PWAInstallButton } from "@/components/pwa/install-button";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Must include an uppercase letter")
+    .regex(/[0-9]/, "Must include a number"),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -27,6 +31,9 @@ export default function LoginPage() {
   const [isSignup, setIsSignup] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [emailSent, setEmailSent] = useState<string | null>(null);
+  const submittingRef = useRef(false);
+  // Timestamp when form rendered — bot detection
+  const formRenderedAt = useRef(Date.now());
 
   const {
     register,
@@ -37,51 +44,55 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginForm) => {
+    // Double-submit guard
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
-    try {
-      const supabase = createClient();
 
+    try {
       if (isSignup) {
-        // Sign up → Supabase sends verification email
-        const { error } = await supabase.auth.signUp({
-          email: data.email,
-          password: data.password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
+        // Signup goes through backend API — rate limited, validated, bot-checked
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: data.email,
+            password: data.password,
+            website: "", // honeypot — always empty from real form
+            _t: formRenderedAt.current,
+          }),
         });
 
-        if (error) {
-          if (error.message.includes("rate limit")) {
-            toast.error("Too many attempts. Please wait a few minutes.");
-          } else if (error.message.includes("already registered")) {
-            toast.error("This email is already registered. Please Sign In.");
-          } else {
-            toast.error(error.message);
-          }
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          toast.error(body.error || "Unable to process request. Please try again.");
           return;
         }
 
         setEmailSent(data.email);
       } else {
-        // Sign in → go straight to app
+        // Login — direct Supabase call (existing flow, kept intact)
+        const supabase = createClient();
         const { data: result, error } = await supabase.auth.signInWithPassword({
           email: data.email,
           password: data.password,
         });
 
         if (error) {
-          if (error.message === "Invalid login credentials") {
-            toast.error("Invalid credentials. Please Sign Up first.");
-          } else if (error.message === "Email not confirmed") {
-            toast.error("Please verify your email first. Check your inbox.");
-          } else {
-            toast.error(error.message);
-          }
+          // Generic message — no email enumeration
+          toast.error("Unable to sign in. Check your email and password.");
           return;
         }
 
         if (result.user) {
+          // Enforce email verification
+          if (!result.user.email_confirmed_at) {
+            await supabase.auth.signOut();
+            setEmailSent(data.email);
+            toast.info("Please verify your email first. Check your inbox.");
+            return;
+          }
+
           useAuthStore.getState().setUser({
             id: result.user.id,
             email: result.user.email || "",
@@ -116,6 +127,7 @@ export default function LoginPage() {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 
@@ -155,17 +167,24 @@ export default function LoginPage() {
             alt="MediLog"
             width={240}
             height={72}
-            className="mx-auto object-contain"
+            className="mx-auto object-contain rounded-2xl dark:bg-white dark:p-2"
             style={{ marginTop: "-20px", marginBottom: "-20px" }}
             priority
           />
         </div>
-        <p className="text-sm text-muted-foreground">
-          Your family&apos;s digital health locker
-        </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Honeypot — hidden from real users, bots will fill it */}
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            style={{ position: "absolute", left: "-9999px", opacity: 0 }}
+          />
+
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <div className="relative">
@@ -175,6 +194,7 @@ export default function LoginPage() {
                 type="email"
                 placeholder="you@example.com"
                 className="pl-10"
+                autoComplete="email"
                 {...register("email")}
               />
             </div>
@@ -190,8 +210,9 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Min 6 characters"
+                placeholder={isSignup ? "Min 8 chars, uppercase + number" : "Enter your password"}
                 className="pl-10 pr-10"
+                autoComplete={isSignup ? "new-password" : "current-password"}
                 {...register("password")}
               />
               <button
@@ -218,7 +239,10 @@ export default function LoginPage() {
             {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
             <button
               type="button"
-              onClick={() => setIsSignup(!isSignup)}
+              onClick={() => {
+                setIsSignup(!isSignup);
+                formRenderedAt.current = Date.now(); // Reset timestamp on mode switch
+              }}
               className="text-primary font-medium hover:underline"
             >
               {isSignup ? "Sign In" : "Sign Up"}
