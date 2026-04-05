@@ -203,8 +203,16 @@ export default function ScanPage() {
         });
       }
 
+      const { shareMediLog } = await import("@/lib/utils/share-app");
       toast.success(
-        `Saved prescription with ${editedMedicines.length} medicine(s)`
+        `Saved prescription with ${editedMedicines.length} medicine(s)`,
+        {
+          duration: 6000,
+          action: {
+            label: "Share App",
+            onClick: () => shareMediLog(),
+          },
+        }
       );
       router.push(`/records/${recordId}`);
     } catch (err) {

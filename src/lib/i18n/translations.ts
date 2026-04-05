@@ -237,6 +237,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "more.share_doctor": "Share with Doctor",
     "more.abha": "ABHA Health ID",
     "more.family_group": "Family Group",
+    "more.share_app": "Share MediLog",
+    "more.share_app_desc": "Help your friends & family manage health records",
     "more.settings": "Settings",
     "more.feedback": "Feedback",
     "more.vitals": "Vitals Tracker",
@@ -297,6 +299,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "ai_doctor.see_doctor": "See",
     "ai_doctor.network_error": "Network error. Please check your internet connection.",
     "ai_doctor.error": "Sorry, couldn't process your request. Please try again.",
+    "ai_doctor.share_app": "Found this helpful? Share MediLog with family",
 
     // Medicine Info
     "medicine.title": "Medicine Info",
@@ -718,6 +721,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "more.share_doctor": "डॉक्टर से शेयर करें",
     "more.abha": "ABHA स्वास्थ्य ID",
     "more.family_group": "परिवार समूह",
+    "more.share_app": "MediLog शेयर करें",
+    "more.share_app_desc": "अपने परिवार और दोस्तों को हेल्थ रिकॉर्ड मैनेज करने में मदद करें",
     "more.settings": "सेटिंग्स",
     "more.feedback": "फीडबैक",
     "more.vitals": "वाइटल ट्रैकर",
@@ -778,6 +783,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "ai_doctor.see_doctor": "दिखाएं",
     "ai_doctor.network_error": "नेटवर्क त्रुटि। कृपया इंटरनेट जांचें।",
     "ai_doctor.error": "माफ़ कीजिए, अनुरोध प्रोसेस नहीं हो सका। कृपया फिर से प्रयास करें।",
+    "ai_doctor.share_app": "मददगार लगा? परिवार के साथ MediLog शेयर करें",
 
     // Medicine Info
     "medicine.title": "दवाई जानकारी",

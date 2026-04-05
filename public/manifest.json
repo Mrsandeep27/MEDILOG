@@ -23,6 +23,35 @@
       "purpose": "maskable"
     }
   ],
-  "screenshots": [],
+  "screenshots": [
+    {
+      "src": "/screenshot-home.jpg",
+      "sizes": "1080x2400",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Home Dashboard — AI tools, quick actions, health stats"
+    },
+    {
+      "src": "/screenshot-ai-doctor.jpg",
+      "sizes": "1080x2400",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "AI Health Assistant — Free doctor consultation"
+    },
+    {
+      "src": "/screenshot-medicine.jpg",
+      "sizes": "1080x2400",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Medicine Info — Identify any medicine with AI"
+    },
+    {
+      "src": "/screenshot-more.jpg",
+      "sizes": "1080x2400",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Health Tools — Emergency card, vitals, reports"
+    }
+  ],
   "prefer_related_applications": false
 }

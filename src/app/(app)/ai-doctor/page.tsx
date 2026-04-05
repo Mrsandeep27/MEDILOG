@@ -374,6 +374,19 @@ export default function AIDoctorPage() {
                     ))}
                   </div>
                 )}
+
+                {/* Share nudge — show on last AI message only */}
+                {idx === messages.length - 1 && (
+                  <button
+                    onClick={async () => {
+                      const { shareMediLog } = await import("@/lib/utils/share-app");
+                      shareMediLog();
+                    }}
+                    className="text-[11px] text-primary hover:underline ml-1 mt-1"
+                  >
+                    {t("ai_doctor.share_app")}
+                  </button>
+                )}
               </div>
             ) : (
               <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-2 max-w-[85%] text-sm">

@@ -17,6 +17,7 @@ import {
   Heart,
   Zap,
   Award,
+  Gift,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -26,6 +27,7 @@ import { useLocale } from "@/lib/i18n/use-locale";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Activity as BarChart3 } from "lucide-react";
+import { shareMediLog } from "@/lib/utils/share-app";
 
 const menuSections = [
   {
@@ -118,6 +120,25 @@ export default function MorePage() {
             </Card>
           </div>
         ))}
+
+        {/* Share MediLog */}
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-0">
+            <button
+              onClick={shareMediLog}
+              className="flex items-center gap-3 p-4 w-full hover:bg-primary/10 transition-colors"
+            >
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Gift className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-medium">{t("more.share_app")}</p>
+                <p className="text-xs text-muted-foreground">{t("more.share_app_desc")}</p>
+              </div>
+              <Share2 className="h-4 w-4 text-primary" />
+            </button>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardContent className="p-0">
