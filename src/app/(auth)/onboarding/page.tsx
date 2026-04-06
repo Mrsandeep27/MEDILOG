@@ -727,7 +727,7 @@ export default function OnboardingPage() {
               alt="MediFamily"
               width={160}
               height={48}
-              className="object-contain rounded-xl dark:bg-white dark:p-1.5"
+              className="object-contain"
               priority
             />
           </div>

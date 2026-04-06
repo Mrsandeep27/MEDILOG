@@ -167,7 +167,7 @@ export default function LoginPage() {
             alt="MediFamily"
             width={240}
             height={72}
-            className="mx-auto object-contain rounded-2xl dark:bg-white dark:p-2"
+            className="mx-auto object-contain"
             style={{ marginTop: "-20px", marginBottom: "-20px" }}
             priority
           />
