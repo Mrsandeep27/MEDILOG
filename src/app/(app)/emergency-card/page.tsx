@@ -1,11 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useMembers } from "@/hooks/use-members";
 import { useMedicines } from "@/hooks/use-medicines";
 import {
@@ -42,10 +49,18 @@ function formatGender(gender: string): string {
 export default function EmergencyCardPage() {
   const router = useRouter();
   const { members, isLoading: membersLoading } = useMembers();
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("");
+
+  // Default to self member, or first member if no self exists
+  useEffect(() => {
+    if (selectedMemberId || members.length === 0) return;
+    const self = members.find((m) => m.relation === "self");
+    setSelectedMemberId(self?.id || members[0].id);
+  }, [members, selectedMemberId]);
 
   const selfMember = useMemo(
-    () => members.find((m) => m.relation === "self"),
-    [members]
+    () => members.find((m) => m.id === selectedMemberId),
+    [members, selectedMemberId]
   );
 
   const { activeMedicines, isLoading: medsLoading } = useMedicines(
@@ -136,7 +151,7 @@ export default function EmergencyCardPage() {
     );
   }
 
-  if (!selfMember) {
+  if (members.length === 0) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <AppHeader title="Emergency Card" showBack />
@@ -146,11 +161,23 @@ export default function EmergencyCardPage() {
           </div>
           <h3 className="text-lg font-semibold mb-1">No Profile Found</h3>
           <p className="text-sm text-muted-foreground mb-4 max-w-xs">
-            Complete your profile setup to generate an emergency health card.
+            Add a family member to generate an emergency health card.
           </p>
-          <Button onClick={() => router.push("/onboarding")}>
-            Complete Profile
+          <Button onClick={() => router.push("/family/add")}>
+            Add Member
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Selector still resolving — show brief loading state
+  if (!selfMember) {
+    return (
+      <div className="flex flex-col min-h-screen bg-background">
+        <AppHeader title="Emergency Card" showBack />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
         </div>
       </div>
     );
@@ -161,6 +188,27 @@ export default function EmergencyCardPage() {
       <AppHeader title="Emergency Card" showBack />
 
       <main className="flex-1 px-4 py-4 pb-24 space-y-4 max-w-lg mx-auto w-full">
+        {/* Member Selector — visible only if more than one member exists */}
+        {members.length > 1 && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground px-1">
+              Select Family Member
+            </p>
+            <Select value={selectedMemberId} onValueChange={(v) => setSelectedMemberId(v || "")}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select member" />
+              </SelectTrigger>
+              <SelectContent>
+                {members.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name} {m.relation === "self" ? "(You)" : `(${m.relation})`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {/* Emergency Card */}
         <Card className="overflow-hidden border-red-200 ring-red-200/50">
           {/* Red Header */}
