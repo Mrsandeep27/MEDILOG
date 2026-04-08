@@ -209,7 +209,14 @@ export default function HomePage() {
   };
 
   const hour = new Date().getHours();
-  const timeGreeting = hour < 12 ? t("home.good_morning") : hour < 17 ? t("home.good_afternoon") : t("home.good_evening");
+  const timeGreeting =
+    hour >= 5 && hour < 12
+      ? t("home.good_morning")
+      : hour >= 12 && hour < 17
+        ? t("home.good_afternoon")
+        : hour >= 17 && hour < 21
+          ? t("home.good_evening")
+          : t("home.good_night");
 
   return (
     <div className="space-y-6">

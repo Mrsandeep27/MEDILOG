@@ -2,12 +2,51 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   requestNotificationPermission,
   showReminderNotification,
+  showAppointmentNotification,
 } from "@/lib/notifications/web-push";
 
 const CHECK_INTERVAL_MS = 60_000; // Check every 60 seconds
+const APPT_LEAD_MS = 3 * 60 * 60 * 1000; // 3 hours
+const APPT_WINDOW_MS = 60_000; // ±1 minute window for "now ≈ T-3h"
+const APPT_FIRED_KEY = "medifamily_appt_fired_v1"; // localStorage cache of fired appointment ids
+
+interface StoredAppointment {
+  id: string;
+  member_name: string;
+  doctor_name: string;
+  hospital: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+  reminder: boolean;
+}
+
+function loadFiredAppointmentIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(APPT_FIRED_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveFiredAppointmentIds(ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  // Cap to last 200 entries to keep localStorage small
+  const arr = [...ids].slice(-200);
+  localStorage.setItem(APPT_FIRED_KEY, JSON.stringify(arr));
+}
+
+function formatTime12h(timeStr: string): string {
+  const [h, m] = timeStr.split(":");
+  const hh = parseInt(h, 10);
+  const ampm = hh >= 12 ? "PM" : "AM";
+  return `${hh % 12 || 12}:${m} ${ampm}`;
+}
 
 /**
  * Hook that:
@@ -21,7 +60,9 @@ export function useNotificationChecker() {
   const quietHoursEnabled = useSettingsStore((s) => s.quietHoursEnabled);
   const quietHoursStart = useSettingsStore((s) => s.quietHoursStart);
   const quietHoursEnd = useSettingsStore((s) => s.quietHoursEnd);
+  const userId = useAuthStore((s) => s.user?.id);
   const firedRef = useRef<Set<string>>(new Set());
+  const firedAppointmentsRef = useRef<Set<string>>(loadFiredAppointmentIds());
 
   // Handle "Taken" action from SW notification button
   const handleSWMessage = useCallback(async (event: MessageEvent) => {
@@ -89,8 +130,48 @@ export function useNotificationChecker() {
       return currentMinutes >= startMinutes && currentMinutes < endMinutes;
     };
 
+    const checkAppointments = () => {
+      if (!userId) return;
+      try {
+        const raw = localStorage.getItem(`medifamily_appointments_${userId}`);
+        if (!raw) return;
+        const appts = JSON.parse(raw) as StoredAppointment[];
+        if (!Array.isArray(appts) || appts.length === 0) return;
+
+        const now = Date.now();
+        for (const a of appts) {
+          if (!a.reminder || !a.date || !a.time) continue;
+          if (firedAppointmentsRef.current.has(a.id)) continue;
+
+          const apptMs = new Date(`${a.date}T${a.time}`).getTime();
+          if (Number.isNaN(apptMs)) continue;
+
+          const targetMs = apptMs - APPT_LEAD_MS; // 3 hours before
+          const diff = Math.abs(now - targetMs);
+
+          // Fire if we're within ±1 minute of the T-3h mark
+          // (matches our 60s check interval so we don't miss it)
+          if (diff > APPT_WINDOW_MS) continue;
+
+          firedAppointmentsRef.current.add(a.id);
+          saveFiredAppointmentIds(firedAppointmentsRef.current);
+
+          showAppointmentNotification(
+            a.doctor_name,
+            a.hospital,
+            a.member_name,
+            formatTime12h(a.time),
+            a.id
+          );
+        }
+      } catch (err) {
+        console.error("Appointment check failed:", err);
+      }
+    };
+
     const checkReminders = async () => {
       if (isInQuietHours()) return;
+      checkAppointments();
 
       try {
         const { db } = await import("@/lib/db/dexie");
@@ -160,5 +241,6 @@ export function useNotificationChecker() {
     quietHoursEnabled,
     quietHoursStart,
     quietHoursEnd,
+    userId,
   ]);
 }

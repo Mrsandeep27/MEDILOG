@@ -67,6 +67,36 @@ export async function showNotification(
 }
 
 /**
+ * Show an appointment reminder notification.
+ * Fired ~3 hours before the scheduled appointment time.
+ */
+export async function showAppointmentNotification(
+  doctorName: string,
+  hospital: string,
+  memberName: string,
+  timeLabel: string,
+  appointmentId: string
+): Promise<void> {
+  const bodyParts = [
+    `In 3 hours · ${timeLabel}`,
+    hospital || null,
+    memberName ? `for ${memberName}` : null,
+  ].filter((v): v is string => !!v);
+
+  await showNotification(`📅 Upcoming: Dr. ${doctorName}`, {
+    body: bodyParts.join(" · "),
+    tag: `appointment-${appointmentId}`,
+    requireInteraction: true,
+    vibrate: [200, 100, 200],
+    data: {
+      type: "appointment-reminder",
+      appointmentId,
+      url: "/appointments",
+    },
+  } as NotificationOptions & { data: Record<string, unknown> });
+}
+
+/**
  * Show a medicine reminder notification with action buttons.
  * Uses SW for background delivery + vibration.
  */

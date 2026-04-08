@@ -67,9 +67,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     // One-time migration: copy data from old `medilog` Dexie DB to `medifamily`
     // Runs once per device, guarded by a localStorage flag
     import("@/lib/db/migrate-from-medilog").then(({ migrateFromMediLog }) => {
-      migrateFromMediLog().catch((err) => {
-        console.error("Migration failed:", err);
-      });
+      migrateFromMediLog()
+        .catch((err) => {
+          console.error("Migration failed:", err);
+        })
+        .then(() =>
+          // After migration, fix any members where a phone number ended up
+          // in emergency_contact_name (from an earlier form schema).
+          import("@/lib/db/fix-emergency-contact").then(({ fixEmergencyContactFields }) =>
+            fixEmergencyContactFields()
+          )
+        );
     });
 
     // One-time session check — if no session, kick to login
