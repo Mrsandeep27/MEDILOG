@@ -3,6 +3,7 @@
 import { useEffect, useState, Component, type ReactNode } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotificationChecker } from "@/hooks/use-notification-checker";
+import { useSync } from "@/hooks/use-sync";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { OfflineIndicator } from "@/components/layout/offline-indicator";
 import { PinLockScreen } from "@/components/layout/pin-lock-screen";
@@ -54,6 +55,7 @@ class ErrorBoundary extends Component<
 export default function AppLayout({ children }: { children: ReactNode }) {
   useAuth();
   useNotificationChecker();
+  useSync(); // Auto-sync — was previously not wired up, causing all data to be local-only
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
