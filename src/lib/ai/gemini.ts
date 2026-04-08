@@ -87,12 +87,18 @@ export async function callGemini(
   const models = hasImage ? VISION_MODELS : TEXT_MODELS;
   const { temperature = 0.1, maxOutputTokens = 2048, feature = "unknown", userId, systemInstruction, jsonMode = false } = options;
 
-  let lastError = "";
+  // Atomic key rotation — each call grabs a unique starting key index
+  // This prevents concurrent requests from hammering the same key
   const startKeyIndex = currentKeyIndex % apiKeys.length;
+  currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+
+  const errors: string[] = [];
   const startTime = Date.now();
+  const invalidKeys = new Set<number>();
 
   for (let k = 0; k < apiKeys.length; k++) {
     const keyIndex = (startKeyIndex + k) % apiKeys.length;
+    if (invalidKeys.has(keyIndex)) continue;
     const apiKey = apiKeys[keyIndex];
 
     for (const model of models) {
@@ -124,8 +130,6 @@ export async function callGemini(
           const result = await response.json();
           const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) {
-            currentKeyIndex = (keyIndex + 1) % apiKeys.length;
-
             // Log success
             logUsage({
               feature,
@@ -140,44 +144,66 @@ export async function callGemini(
 
             return text;
           }
-          lastError = `Key${keyIndex + 1}/${model}: empty response`;
-          continue;
+          errors.push(`K${keyIndex + 1}/${model}: empty`);
+          continue; // try next model
         }
 
         const status = response.status;
-        const errBody = await response.text().catch(() => "");
 
-        if (status === 429 || status === 404 || status === 400) {
-          lastError = `Key${keyIndex + 1}/${model}: ${status}`;
-          continue;
-        }
-
+        // 403 = key invalid/expired — mark key as bad, skip remaining models
         if (status === 403) {
-          lastError = `Key${keyIndex + 1}: invalid/expired`;
-          break;
+          errors.push(`K${keyIndex + 1}: invalid/expired`);
+          invalidKeys.add(keyIndex);
+          break; // try next key
         }
 
-        lastError = `Key${keyIndex + 1}/${model}: ${status}`;
-        break;
+        // 429 = rate limit on THIS specific model. Each Gemini model has its
+        // own per-minute quota, so try a DIFFERENT model on the same key first.
+        // Only after all models fail on this key do we move to the next key.
+        if (status === 429) {
+          errors.push(`K${keyIndex + 1}/${model}: 429 rate-limit`);
+          continue; // try next model on same key
+        }
+
+        // 4xx (other) = bad request/model not found — try next model with same key
+        if (status >= 400 && status < 500) {
+          errors.push(`K${keyIndex + 1}/${model}: ${status}`);
+          continue; // try next model
+        }
+
+        // 5xx = transient server issue — try next model first, then next key
+        errors.push(`K${keyIndex + 1}/${model}: ${status}`);
+        continue; // try next model on same key
       } catch (err) {
-        lastError = `Key${keyIndex + 1}/${model}: ${err instanceof Error ? err.message : String(err)}`;
-        continue;
+        errors.push(
+          `K${keyIndex + 1}/${model}: ${err instanceof Error ? err.message : String(err)}`
+        );
+        continue; // try next model
       }
     }
   }
 
-  // Log failure
+  // Log failure with FULL error trail
+  const errorSummary = errors.join(" | ");
   logUsage({
     feature,
     model_used: "none",
     key_index: 0,
     duration: Date.now() - startTime,
     success: false,
-    error: lastError,
+    error: errorSummary,
     user_id: userId,
   });
 
-  throw new Error(`All AI models failed. ${lastError}`);
+  // Show user a friendlier message; full trail is in server logs
+  const userMessage = errors.some((e) => e.includes("503") || e.includes("overloaded"))
+    ? "AI service is temporarily overloaded. Please try again in a moment."
+    : errors.some((e) => e.includes("429") || e.includes("rate-limit"))
+      ? "Daily AI quota reached. Please try again later."
+      : "AI service is unavailable. Please try again.";
+
+  console.error(`[Gemini] ${errorSummary}`);
+  throw new Error(userMessage);
 }
 
 export function parseJsonResponse(text: string): Record<string, unknown> {
