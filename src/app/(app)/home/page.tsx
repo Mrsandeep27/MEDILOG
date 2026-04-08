@@ -32,6 +32,7 @@ import {
   Zap,
   LayoutGrid,
   ChevronDown,
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -95,7 +96,12 @@ export default function HomePage() {
   const [showFeeling, setShowFeeling] = useState(false);
   const [showTools, setShowTools] = useState(false);
   const [appointments, setAppointments] = useState<Array<{ date: string; time: string; doctor_name: string; purpose: string }>>([]);
-  const [tipKey] = useState(() => tipKeys[Math.floor(Math.random() * tipKeys.length)]);
+  // Rotate tip on every mount (each time user lands on home) — pick a fresh
+  // random key so revisiting feels alive instead of stuck on one tip.
+  const [tipKey, setTipKey] = useState(() => tipKeys[Math.floor(Math.random() * tipKeys.length)]);
+  useEffect(() => {
+    setTipKey(tipKeys[Math.floor(Math.random() * tipKeys.length)]);
+  }, []);
 
   const selfMember = members.find((m) => m.relation === "self");
   const greeting = selfMember
@@ -191,6 +197,13 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-1">
             <NotificationCenter />
+            <Link
+              href="/more"
+              className="h-10 w-10 rounded-full hover:bg-primary-foreground/10 flex items-center justify-center"
+              aria-label="More"
+            >
+              <MoreHorizontal className="h-5 w-5" />
+            </Link>
           </div>
         </div>
 
@@ -223,6 +236,12 @@ export default function HomePage() {
       </div>
 
       <div className="px-4 space-y-5">
+        {/* Health Tip — compact icon strip, rotates each visit */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-amber-50 border border-amber-200">
+          <Lightbulb className="h-4 w-4 text-amber-600 shrink-0" />
+          <p className="text-xs text-amber-800 truncate">{t(tipKey)}</p>
+        </div>
+
         {/* Quick Actions */}
         <div className="grid grid-cols-4 gap-2">
           {quickActionDefs.map((action) => {
@@ -349,19 +368,6 @@ export default function HomePage() {
             </div>
           </section>
         )}
-
-        {/* Health Tip */}
-        <Card className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
-          <CardContent className="py-3 flex items-start gap-3">
-            <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center shrink-0 mt-0.5">
-              <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">{t("home.health_tip")}</p>
-              <p className="text-xs text-amber-700 dark:text-amber-400">{t(tipKey)}</p>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Family Members */}
         {members.length > 0 && (
