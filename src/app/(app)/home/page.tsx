@@ -32,7 +32,6 @@ import {
   Zap,
   LayoutGrid,
   ChevronDown,
-  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -197,13 +196,6 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-1">
             <NotificationCenter />
-            <Link
-              href="/more"
-              className="h-10 w-10 rounded-full hover:bg-primary-foreground/10 flex items-center justify-center"
-              aria-label="More"
-            >
-              <MoreHorizontal className="h-5 w-5" />
-            </Link>
           </div>
         </div>
 
