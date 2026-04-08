@@ -628,9 +628,13 @@ export default function OnboardingPage() {
       // Check Dexie locally first (fast, works offline)
       try {
         const { db } = await import("@/lib/db/dexie");
-        const localSelf = await db.members
-          .where({ user_id: sessionUser.id, relation: "self", is_deleted: false })
-          .first();
+        const localMembers = await db.members
+          .where("user_id")
+          .equals(sessionUser.id)
+          .toArray();
+        const localSelf = localMembers.find(
+          (m) => m.relation === "self" && !m.is_deleted
+        );
         if (localSelf && !cancelled) {
           setHasCompletedOnboarding(true);
           window.location.replace("/home");

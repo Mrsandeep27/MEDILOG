@@ -10,11 +10,17 @@ import type { MemberFormData } from "@/lib/utils/validators";
 export function useMembers() {
   const user = useAuthStore((s) => s.user);
 
+  // Use single-key index + JS filter. The compound form
+  // .where({ user_id, is_deleted: false }) is unreliable in Dexie 4
+  // because boolean false doesn't index reliably across browsers, and
+  // there's no [user_id+is_deleted] compound index in the schema.
   const members = useLiveQuery(
     () =>
       user
         ? db.members
-            .where({ user_id: user.id, is_deleted: false })
+            .where("user_id")
+            .equals(user.id)
+            .filter((m) => !m.is_deleted)
             .toArray()
         : [],
     [user?.id]
