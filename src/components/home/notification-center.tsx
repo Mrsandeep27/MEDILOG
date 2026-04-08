@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -11,8 +11,6 @@ import {
   AlertTriangle,
   CheckCircle,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth-store";
 
 interface Notification {
@@ -50,11 +48,31 @@ export function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const user = useAuthStore((s) => s.user);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) return;
     buildNotifications();
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close popover on outside click or Escape
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   async function buildNotifications() {
     if (!user) return;
@@ -154,10 +172,11 @@ export function NotificationCenter() {
   };
 
   return (
-    <>
+    <div ref={wrapperRef} className="relative">
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => setOpen((v) => !v)}
         className="relative h-10 w-10 rounded-full hover:bg-primary-foreground/10 flex items-center justify-center"
+        aria-label="Notifications"
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
@@ -168,58 +187,72 @@ export function NotificationCenter() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw] bg-background shadow-2xl animate-in slide-in-from-right duration-200">
-            <div className="flex items-center justify-between px-5 py-4 border-b">
-              <h3 className="font-bold text-lg">Notifications</h3>
-              <button onClick={() => setOpen(false)} className="h-9 w-9 rounded-full hover:bg-muted flex items-center justify-center">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-4 space-y-2 overflow-y-auto" style={{ maxHeight: "calc(100vh - 70px)" }}>
-              {notifications.length === 0 ? (
-                <div className="text-center py-8">
-                  <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-2" />
-                  <p className="text-sm font-medium">All caught up!</p>
-                  <p className="text-xs text-muted-foreground">No pending notifications</p>
-                </div>
-              ) : (
-                notifications.map((notif) => {
-                  const Icon = iconMap[notif.type];
-                  return (
-                    <Link
-                      key={notif.id}
-                      href={notif.href}
-                      onClick={() => {
-                        markRead(notif.id);
-                        setOpen(false);
-                      }}
-                    >
-                      <div className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${
-                        notif.read ? "opacity-60" : bgMap[notif.type]
-                      }`}>
-                        <div className={`h-9 w-9 rounded-full bg-white dark:bg-background flex items-center justify-center shrink-0 ${
-                          notif.read ? "" : "shadow-sm"
-                        }`}>
-                          <Icon className={`h-4 w-4 ${colorMap[notif.type]}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{notif.title}</p>
-                          <p className="text-xs text-muted-foreground">{notif.message}</p>
-                        </div>
-                        {!notif.read && (
-                          <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-2" />
-                        )}
-                      </div>
-                    </Link>
-                  );
-                })
+        <div
+          className="absolute right-0 top-12 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-background text-foreground shadow-xl ring-1 ring-black/5 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+        >
+          {/* Compact header */}
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/60">
+            <div className="flex items-center gap-2">
+              <Bell className="h-3.5 w-3.5 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Notifications</h3>
+              {unreadCount > 0 && (
+                <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                  {unreadCount}
+                </span>
               )}
             </div>
+            <button
+              onClick={() => setOpen(false)}
+              className="h-7 w-7 rounded-full hover:bg-muted flex items-center justify-center -mr-1"
+              aria-label="Close"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Body — auto height, capped */}
+          <div className="max-h-[60vh] overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="text-center py-8 px-4">
+                <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-1.5" />
+                <p className="text-sm font-medium">All caught up</p>
+                <p className="text-[11px] text-muted-foreground">No pending notifications</p>
+              </div>
+            ) : (
+              <ul className="py-1">
+                {notifications.map((notif) => {
+                  const Icon = iconMap[notif.type];
+                  return (
+                    <li key={notif.id}>
+                      <Link
+                        href={notif.href}
+                        onClick={() => {
+                          markRead(notif.id);
+                          setOpen(false);
+                        }}
+                        className={`flex items-start gap-3 px-4 py-2.5 hover:bg-muted/60 transition-colors ${
+                          notif.read ? "opacity-60" : ""
+                        }`}
+                      >
+                        <div className={`h-8 w-8 rounded-full ${bgMap[notif.type]} flex items-center justify-center shrink-0 mt-0.5`}>
+                          <Icon className={`h-3.5 w-3.5 ${colorMap[notif.type]}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium leading-snug truncate">{notif.title}</p>
+                          <p className="text-[11px] text-muted-foreground leading-snug truncate">{notif.message}</p>
+                        </div>
+                        {!notif.read && (
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-2" />
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
