@@ -112,7 +112,7 @@ export default function AppointmentsPage() {
   const [doctorName, setDoctorName] = useState("");
   const [hospital, setHospital] = useState("");
   const [date, setDate] = useState("");
-  const [time, setTime] = useState("10:00");
+  const [time, setTime] = useState("");
   const [memberId, setMemberId] = useState("");
   const [purpose, setPurpose] = useState("");
   const [notes, setNotes] = useState("");
@@ -141,7 +141,7 @@ export default function AppointmentsPage() {
     setDoctorName("");
     setHospital("");
     setDate("");
-    setTime("10:00");
+    setTime("");
     setMemberId("");
     setPurpose("");
     setNotes("");
@@ -199,7 +199,8 @@ export default function AppointmentsPage() {
         rightAction={
           <Dialog open={showAddDialog} onOpenChange={(open) => {
             setShowAddDialog(open);
-            if (!open) resetForm();
+            // Reset on both open AND close to guarantee no stale state
+            resetForm();
           }}>
             <DialogTrigger
               render={<Button size="sm" />}

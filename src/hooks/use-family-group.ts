@@ -2,6 +2,17 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
+import { createClient } from "@/lib/supabase/client";
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
+  }
+  return headers;
+}
 
 export interface FamilyGroupMember {
   id: string;
@@ -29,9 +40,8 @@ export function useFamilyGroup() {
   const fetchFamilies = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await fetch("/api/family", {
-        headers: { "x-user-id": user.id },
-      });
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/family", { headers });
       if (res.ok) {
         const data = await res.json();
         setFamilies(data.families || []);
@@ -49,12 +59,10 @@ export function useFamilyGroup() {
 
   const createFamily = async (name: string): Promise<FamilyGroup | null> => {
     if (!user) return null;
+    const headers = await getAuthHeaders();
     const res = await fetch("/api/family", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": user.id,
-      },
+      headers,
       body: JSON.stringify({ action: "create", name }),
     });
 
@@ -70,12 +78,10 @@ export function useFamilyGroup() {
 
   const joinFamily = async (inviteCode: string): Promise<FamilyGroup | null> => {
     if (!user) return null;
+    const headers = await getAuthHeaders();
     const res = await fetch("/api/family", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": user.id,
-      },
+      headers,
       body: JSON.stringify({ action: "join", invite_code: inviteCode }),
     });
 
@@ -91,12 +97,10 @@ export function useFamilyGroup() {
 
   const leaveFamily = async (familyId: string): Promise<void> => {
     if (!user) return;
+    const headers = await getAuthHeaders();
     const res = await fetch("/api/family", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": user.id,
-      },
+      headers,
       body: JSON.stringify({ action: "leave", family_id: familyId }),
     });
 
