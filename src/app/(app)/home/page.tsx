@@ -15,10 +15,6 @@ import {
   Plus,
   AlertTriangle,
   HeartPulse,
-  Share2,
-  Download,
-  Settings,
-  MessageSquare,
   X,
   Smile,
   Meh,
@@ -64,23 +60,16 @@ const quickActionDefs = [
   { href: "/reminders", icon: Bell, labelKey: "home.reminders", gradient: "from-amber-500 to-amber-600" },
 ];
 
+// Specialized health tools — basic actions (Scan/Add/Symptoms/Reminders) live
+// in the quick actions row, and Settings/Feedback/Export live under /more.
 const shortcutDefs = [
-  { href: "/scan", icon: ScanLine, labelKey: "home.scan_prescription" },
-  { href: "/records/add", icon: Plus, labelKey: "home.add_record" },
-  { href: "/symptom-tracker", icon: HeartPulse, labelKey: "home.log_symptoms" },
-  { href: "/reminders", icon: Bell, labelKey: "home.reminders" },
-  { href: "/timeline", icon: Clock, labelKey: "home.health_timeline" },
-  { href: "/appointments", icon: CalendarDays, labelKey: "more.appointments" },
-  { href: "/emergency-card", icon: AlertTriangle, labelKey: "home.emergency_card" },
   { href: "/medicine-checker", icon: Zap, labelKey: "more.medicine_checker" },
   { href: "/vitals", icon: Activity, labelKey: "home.vitals_tracker" },
   { href: "/smart-records", icon: Activity, labelKey: "home.health_overview" },
   { href: "/health-risk", icon: AlertTriangle, labelKey: "home.risk_assessment" },
-  { href: "/more/export", icon: Download, labelKey: "home.download_report" },
-  { href: "/more/shared-links", icon: Share2, labelKey: "home.share_doctor" },
+  { href: "/timeline", icon: Clock, labelKey: "home.health_timeline" },
+  { href: "/appointments", icon: CalendarDays, labelKey: "more.appointments" },
   { href: "/abha", icon: Shield, labelKey: "home.abha_health_id" },
-  { href: "/more/settings", icon: Settings, labelKey: "more.settings" },
-  { href: "/more/feedback", icon: MessageSquare, labelKey: "more.feedback" },
 ];
 
 const tipKeys = ["tip.1", "tip.2", "tip.3", "tip.4", "tip.5", "tip.6", "tip.7", "tip.8", "tip.9", "tip.10"];
