@@ -7,7 +7,6 @@ describe("Settings Store", () => {
       pinEnabled: false,
       pinHash: null,
       notificationsEnabled: true,
-      theme: "system",
       language: "en",
       lastActiveAt: Date.now(),
     });
@@ -42,14 +41,6 @@ describe("Settings Store", () => {
     expect(useSettingsStore.getState().notificationsEnabled).toBe(false);
     useSettingsStore.getState().setNotificationsEnabled(true);
     expect(useSettingsStore.getState().notificationsEnabled).toBe(true);
-  });
-
-  it("changes theme", () => {
-    useSettingsStore.getState().setTheme("dark");
-    expect(useSettingsStore.getState().theme).toBe("dark");
-
-    useSettingsStore.getState().setTheme("light");
-    expect(useSettingsStore.getState().theme).toBe("light");
   });
 
   it("changes language", () => {

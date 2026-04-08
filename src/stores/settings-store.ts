@@ -9,7 +9,6 @@ interface SettingsState {
 
   // Preferences
   language: "en" | "hi";
-  theme: "light" | "dark" | "system";
 
   // Notifications
   notificationsEnabled: boolean;
@@ -26,7 +25,6 @@ interface SettingsState {
   setPinHash: (hash: string | null) => void;
   setLastActiveAt: (timestamp: number) => void;
   setLanguage: (language: "en" | "hi") => void;
-  setTheme: (theme: "light" | "dark" | "system") => void;
   setNotificationsEnabled: (enabled: boolean) => void;
   setQuietHours: (enabled: boolean, start?: string, end?: string) => void;
   setLastSyncAt: (timestamp: string | null) => void;
@@ -40,7 +38,6 @@ export const useSettingsStore = create<SettingsState>()(
       pinHash: null,
       lastActiveAt: Date.now(),
       language: "en",
-      theme: "system",
       notificationsEnabled: true,
       quietHoursEnabled: true,
       quietHoursStart: "22:00",
@@ -52,7 +49,6 @@ export const useSettingsStore = create<SettingsState>()(
       setPinHash: (hash) => set({ pinHash: hash }),
       setLastActiveAt: (timestamp) => set({ lastActiveAt: timestamp }),
       setLanguage: (language) => set({ language }),
-      setTheme: (theme) => set({ theme }),
       setNotificationsEnabled: (enabled) =>
         set({ notificationsEnabled: enabled }),
       setQuietHours: (enabled, start, end) =>

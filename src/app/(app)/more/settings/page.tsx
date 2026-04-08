@@ -1,17 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Bell, Globe, Palette, Sun, Moon, Monitor } from "lucide-react";
+import { Lock, Bell, Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { AppHeader } from "@/components/layout/app-header";
 import { useSettingsStore } from "@/stores/settings-store";
 import { hashPin } from "@/lib/auth/pin";
 import { toast } from "sonner";
-import { useTheme } from "next-themes";
 import { useLocale } from "@/lib/i18n/use-locale";
 import { requestNotificationPermission } from "@/lib/notifications/web-push";
 
@@ -26,7 +24,6 @@ export default function SettingsPage() {
     setNotificationsEnabled,
   } = useSettingsStore();
 
-  const { theme, setTheme: setNextTheme } = useTheme();
   const { t } = useLocale();
   const [pinInput, setPinInput] = useState("");
   const [showPinSetup, setShowPinSetup] = useState(false);
@@ -150,44 +147,6 @@ export default function SettingsPage() {
                 }}
               >
                 {notificationsEnabled ? t("settings.on") : t("settings.off")}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Theme */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Palette className="h-4 w-4" />
-              {t("settings.theme")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2">
-              <Button
-                variant={theme === "light" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setNextTheme("light")}
-              >
-                <Sun className="h-4 w-4 mr-1" />
-                {t("settings.light")}
-              </Button>
-              <Button
-                variant={theme === "dark" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setNextTheme("dark")}
-              >
-                <Moon className="h-4 w-4 mr-1" />
-                {t("settings.dark")}
-              </Button>
-              <Button
-                variant={theme === "system" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setNextTheme("system")}
-              >
-                <Monitor className="h-4 w-4 mr-1" />
-                {t("settings.system")}
               </Button>
             </div>
           </CardContent>
