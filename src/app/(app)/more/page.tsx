@@ -23,6 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AppHeader } from "@/components/layout/app-header";
 import { useAuth } from "@/hooks/use-auth";
+import { useMembers } from "@/hooks/use-members";
 import { useLocale } from "@/lib/i18n/use-locale";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -64,7 +65,12 @@ const menuSections = [
 export default function MorePage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { members } = useMembers();
   const { t } = useLocale();
+
+  // Use the "self" member's name as the display name (since signup doesn't collect name)
+  const selfMember = members.find((m) => m.relation === "self");
+  const displayName = user?.name || selfMember?.name || "";
 
   const handleSignOut = async () => {
     await signOut();
@@ -76,21 +82,31 @@ export default function MorePage() {
     <div>
       <AppHeader title={t("more.title")} />
       <div className="p-4 space-y-4">
-        {/* User Info */}
+        {/* User Info — clickable to open self profile for editing */}
         {user && (
           <Card>
-            <CardContent className="py-3">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <CardContent className="p-0">
+              <button
+                onClick={() => {
+                  if (selfMember) {
+                    router.push(`/family/${selfMember.id}/edit`);
+                  } else {
+                    router.push("/family/add");
+                  }
+                }}
+                className="w-full flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors text-left"
+              >
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <span className="text-sm font-bold text-primary">
-                    {user.name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || "U"}
+                    {displayName?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || "U"}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{user.name || "User"}</p>
+                  <p className="text-sm font-medium truncate">{displayName || "Add your name"}</p>
                   <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                 </div>
-              </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
             </CardContent>
           </Card>
         )}
