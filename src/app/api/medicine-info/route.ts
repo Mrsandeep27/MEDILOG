@@ -7,38 +7,14 @@ const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const MEDICINE_INFO_PROMPT = `You are a helpful Indian pharmacist assistant. A user has uploaded a photo of a medicine (tablet strip, bottle, syrup, etc).
+// System instruction — cached by Gemini across calls for speed
+const MEDICINE_SYSTEM = `You are a helpful Indian pharmacist assistant. Identify medicines from photos and answer questions.
 
-Identify the medicine and provide information in this JSON format (no markdown, just raw JSON):
-{
-  "name": "Medicine name",
-  "generic_name": "Generic/salt name",
-  "manufacturer": "Company name or null",
-  "type": "tablet/capsule/syrup/injection/cream/drops/inhaler",
-  "uses": ["Use 1 in simple language", "Use 2"],
-  "how_to_take": "Simple instructions (before/after food, with water, etc)",
-  "common_side_effects": ["Side effect 1", "Side effect 2"],
-  "serious_side_effects": ["Serious side effect 1"],
-  "warnings": ["Warning 1", "Warning 2"],
-  "not_for": ["Condition 1 where this should NOT be taken"],
-  "generic_alternative": {
-    "name": "Cheaper generic alternative",
-    "approx_price": "₹XX for X tablets"
-  },
-  "approx_price": "₹XX for X tablets",
-  "pregnancy_safe": "Yes/No/Consult doctor",
-  "alcohol_safe": "Yes/No/Avoid",
-  "habit_forming": "Yes/No",
-  "requires_prescription": "Yes/No",
-  "summary_hindi": "Medicine ka simple Hindi mein ek line description"
-}
+OUTPUT: single raw JSON, no markdown. Schema:
+{"name":"","generic_name":"","manufacturer":"","type":"tablet|capsule|syrup|injection|cream|drops|inhaler","uses":["simple language"],"how_to_take":"","common_side_effects":[""],"serious_side_effects":[""],"warnings":[""],"not_for":[""],"generic_alternative":{"name":"","approx_price":"₹XX"},"approx_price":"₹XX","pregnancy_safe":"Yes|No|Consult doctor","alcohol_safe":"Yes|No|Avoid","habit_forming":"Yes|No","requires_prescription":"Yes|No","summary_hindi":"one line Hindi"}
 
-Rules:
-- Write uses and side effects in SIMPLE language (not medical jargon)
-- An Indian grandmother should understand your explanation
-- If you can't identify the medicine clearly, set name to "Unknown" and explain in uses what you can see
-- Prices should be approximate Indian MRP in ₹
-- Always include Hindi summary`;
+KEEP TIGHT: max 3 uses, max 3 common side effects, max 2 serious, max 2 warnings.
+Rules: simple language an Indian grandmother understands. Prices in ₹. Always include Hindi summary. If unidentifiable, name="Unknown".`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,36 +39,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const interactionPrompt = `You are an Indian pharmacist AI. Check if these medicines can be safely taken together by an Indian patient.
+      const interactionUserPrompt = `Medicines: ${medicines.join(", ")}${locale === "hi" ? "\nReply in Hindi." : ""}`;
 
-Medicines: ${medicines.join(", ")}
-
-Return ONLY this JSON format (no markdown, no extra text):
-{
-  "interactions": [
-    {
-      "medicines": ["Medicine 1 name", "Medicine 2 name"],
-      "severity": "mild",
-      "description": "Simple explanation of what happens when these are combined, plus what the patient should do"
-    }
-  ],
-  "overall_safe": true,
-  "summary": "One-line summary in simple English"
-}
-
-Rules:
-- If NO interactions exist between the listed medicines, return interactions: [] and overall_safe: true
-- "medicines" field MUST be an array of EXACTLY 2 medicine names that interact
-- Severity must be exactly one of: mild, moderate, severe
-- mild = generally OK with caution, moderate = needs doctor approval, severe = do NOT combine
-- description should be simple, plain language an Indian grandmother understands
-- ALWAYS include "Please consult your doctor" for moderate/severe interactions
-- If you don't recognize a medicine name, still try your best${locale === "hi" ? "\n- Write description and summary in Hindi (Devanagari script)" : ""}`;
+      const interactionSystem = `You are an Indian pharmacist AI. Check drug interactions.
+OUTPUT JSON: {"interactions":[{"medicines":["A","B"],"severity":"mild|moderate|severe","description":"simple explanation"}],"overall_safe":true|false,"summary":"one line"}
+No interactions → interactions:[], overall_safe:true. Max 3 interactions. Simple language. "Consult doctor" for moderate/severe.`;
 
       try {
         const text = await callGemini(
-          [{ text: interactionPrompt }],
-          { temperature: 0.2, maxOutputTokens: 1500, feature: "medicine-interaction", jsonMode: true }
+          [{ text: interactionUserPrompt }],
+          { temperature: 0.2, maxOutputTokens: 600, feature: "medicine-interaction", jsonMode: true, systemInstruction: interactionSystem }
         );
 
         const parsed = parseJsonResponse(text);
@@ -151,24 +107,13 @@ Rules:
         return NextResponse.json({ error: "Question and context required" }, { status: 400 });
       }
 
-      const chatPrompt = `You are a helpful Indian pharmacist assistant. The user is asking about this medicine:
-
-Medicine: ${context.name} (${context.generic_name})
-Uses: ${(context.uses || []).join(", ")}
-
-User's question: "${question}"
-
-Rules:
-- Answer in simple, easy-to-understand language
-- Mix Hindi and English naturally (how Indians actually talk)
-- If the question is about safety, always add "Please consult your doctor" disclaimer
-- Keep answer concise (2-4 sentences)
-- Be helpful but responsible — don't replace a doctor's advice${locale === "hi" ? "\n- Answer in Hindi (Devanagari script)" : "\n- Answer in simple English"}`;
+      const chatUserPrompt = `Medicine: ${context.name} (${context.generic_name})\nQuestion: "${question}"${locale === "hi" ? "\nReply in Hindi." : ""}`;
+      const chatSystem = `Indian pharmacist assistant. Answer medicine questions in 2-3 sentences, simple language. Always add "consult doctor" for safety questions. Hinglish is fine.`;
 
       try {
         const answer = await callGemini(
-          [{ text: chatPrompt }],
-          { temperature: 0.3, maxOutputTokens: 512, feature: "medicine-chat" }
+          [{ text: chatUserPrompt }],
+          { temperature: 0.3, maxOutputTokens: 300, feature: "medicine-chat", systemInstruction: chatSystem }
         );
         return NextResponse.json({ answer });
       } catch (err) {
@@ -198,14 +143,14 @@ Rules:
     }
 
     const langInstruction = locale === "hi"
-      ? "\n\nIMPORTANT: Write ALL text fields (uses, how_to_take, side effects, warnings, summary_hindi) in Hindi (Devanagari script). Medicine name and generic_name can stay in English."
-      : "\n\nIMPORTANT: Write all fields in simple English.";
+      ? "Write all text fields in Hindi (Devanagari). Medicine name can stay English."
+      : "Write all fields in simple English.";
 
     try {
       const text = await callGemini([
-        { text: MEDICINE_INFO_PROMPT + langInstruction },
+        { text: `Identify this medicine. ${langInstruction}` },
         { inlineData: { mimeType, data: base64Data } },
-      ], { feature: "medicine-info", jsonMode: true });
+      ], { feature: "medicine-info", jsonMode: true, maxOutputTokens: 800, systemInstruction: MEDICINE_SYSTEM });
 
       const parsed = parseJsonResponse(text);
       if (!parsed.name) {
