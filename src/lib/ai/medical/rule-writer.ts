@@ -105,9 +105,9 @@ export function isAutoApprovable(draft: RuleDraft): boolean {
     text.startsWith("RAISE URGENCY") ||
     text.startsWith("IF") && /THEN.*(NEVER|RED|EMERGENCY|DOCTOR|AVOID|DO NOT)/.test(text);
 
-  // Hard blacklist: never auto-approve anything that loosens
+  // Hard blacklist: never auto-approve anything that loosens safety
   const loosens =
-    /MAY|CAN|OK TO|ALLOWED|PERMITTED|REMOVE|DELETE|DISREGARD/.test(text);
+    /MAY|CAN|OK TO|ALLOWED|PERMITTED|REMOVE|DELETE|DISREGARD|SAFE TO|FINE TO|NO NEED|IGNORE|SKIP|DON'T WORRY|NOT NECESSARY|ACCEPTABLE|HARMLESS|WORRY|BOTHER/.test(text);
 
   return tightens && !loosens;
 }

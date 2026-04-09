@@ -42,9 +42,14 @@ export async function loadActiveRules(): Promise<{ text: string; count: number }
         { severity: "desc" },
         { created_at: "asc" },
       ],
+      take: 150, // P0.4: hard cap — beyond ~150 rules, LLM gets confused
     });
 
-    const text = formatRulesForPrompt(rules);
+    let text = formatRulesForPrompt(rules);
+    // P0.4: hard token cap — ~2000 tokens ≈ 8000 chars
+    if (text.length > 8000) {
+      text = text.slice(0, 8000) + "\n[...rules truncated — review and consolidate in admin]";
+    }
     cache = { text, count: rules.length, loadedAt: now };
     return { text, count: rules.length };
   } catch (err) {

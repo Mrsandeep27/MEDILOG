@@ -93,7 +93,14 @@ export async function POST(request: NextRequest) {
     // back to the legacy minimal patient block for older clients.
     let patientContext: string;
     if (medicalBrief && typeof medicalBrief === "string" && medicalBrief.length > 0) {
-      patientContext = medicalBrief.slice(0, 4000);
+      // P0.2: Sanitize against prompt injection — the brief is client-controlled
+      patientContext = medicalBrief
+        .replace(/ignore\s+(all|previous|above|every|your|the)/gi, "[REDACTED]")
+        .replace(/you\s+are\s+(now|no\s+longer|not|a)/gi, "[REDACTED]")
+        .replace(/forget\s+(all|everything|your|previous|the)/gi, "[REDACTED]")
+        .replace(/override|disregard|bypass|jailbreak|pretend|roleplay/gi, "[REDACTED]")
+        .replace(/system\s*(prompt|instruction|message)/gi, "[REDACTED]")
+        .slice(0, 4000);
     } else if (patient) {
       const age = patient.date_of_birth
         ? Math.floor((Date.now() - new Date(patient.date_of_birth).getTime()) / 31557600000)
@@ -194,8 +201,22 @@ export async function POST(request: NextRequest) {
           userId,
         }).catch((e) => console.error("[ai-doctor] queueAndDraft failed:", e));
 
-        // Attach violations to the response so the client can show a small
-        // safety banner if it wants. Non-breaking: clients ignore unknown fields.
+        // P0.1: BLOCK unsafe responses, don't just flag them.
+        // If any CRITICAL violation is detected, strip dangerous fields
+        // and override the reply with a safety message. The user must
+        // never see a drug recommendation that conflicts with their
+        // allergies, pregnancy status, or age.
+        const hasCritical = violations.some((v) => v.severity === "critical");
+        if (hasCritical) {
+          parsed.otc_medicines = [];
+          if (parsed.urgency === "green") parsed.urgency = "yellow";
+          parsed.reply = "⚠️ Safety check triggered — " +
+            violations.map((v) => v.reason).join(". ") +
+            ". Please consult a doctor before taking any medicine.";
+          if (!Array.isArray(parsed.what_to_do)) parsed.what_to_do = [];
+          (parsed.what_to_do as string[]).unshift("Consult a doctor before taking any medicine");
+        }
+
         (parsed as Record<string, unknown>)._safety_violations = violations.map((v) => v.reason);
       }
 
@@ -263,6 +284,12 @@ async function queueAndDraftCandidate(input: {
     // Auto-approve safety-tightening rules — they can never make the AI
     // more dangerous, only more cautious. Everything else waits for review.
     if (isAutoApprovable(draft)) {
+      // P1.2: Deduplicate — skip if a similar rule already exists
+      const existing = await prisma.activeRule.findFirst({
+        where: { rule_text: draft.rule_text, is_active: true },
+      });
+      if (existing) return; // already covered
+
       await prisma.activeRule.create({
         data: {
           rule_text: draft.rule_text,

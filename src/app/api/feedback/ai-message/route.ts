@@ -43,6 +43,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "conversation required" }, { status: 400 });
     }
 
+    // P0.3: Rate limit — max 5 thumbs-down per user per hour to prevent
+    // denial-of-wallet attacks (each one triggers a Gemini rule-writer call)
+    const oneHourAgo = new Date(Date.now() - 3600000);
+    const recentCount = await prisma.ruleCandidate.count({
+      where: { user_id: userId, created_at: { gte: oneHourAgo } },
+    });
+    if (recentCount >= 5) {
+      return NextResponse.json({ error: "Too many feedback signals. Try again later." }, { status: 429 });
+    }
+
     const triggerReason = body.userMessage
       ? `User flagged AI reply to: "${body.userMessage.slice(0, 200)}"`
       : "User flagged AI reply as not helpful";
