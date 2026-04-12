@@ -65,7 +65,6 @@ const quickActionDefs = [
 // in the quick actions row, and Settings/Feedback/Export live under /more.
 const shortcutDefs = [
   { href: "/visit-prep", icon: Stethoscope, labelKey: "home.visit_prep" },
-  { href: "/emergency-card", icon: Heart, labelKey: "home.emergency_card" },
   { href: "/medicine-checker", icon: Zap, labelKey: "more.medicine_checker" },
   { href: "/vitals", icon: Activity, labelKey: "home.vitals_tracker" },
   { href: "/smart-records", icon: Activity, labelKey: "home.health_overview" },
