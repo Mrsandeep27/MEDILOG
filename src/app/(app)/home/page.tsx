@@ -85,6 +85,7 @@ export default function HomePage() {
   const { records } = useRecords(selectedMemberId || undefined);
   const [showFeeling, setShowFeeling] = useState(false);
   const [showTools, setShowTools] = useState(false);
+  const [tipExpanded, setTipExpanded] = useState(false);
   const [appointments, setAppointments] = useState<Array<{ date: string; time: string; doctor_name: string; purpose: string }>>([]);
   // Rotate tip on every mount (each time user lands on home) — pick a fresh
   // random key so revisiting feels alive instead of stuck on one tip.
@@ -219,11 +220,15 @@ export default function HomePage() {
       </div>
 
       <div className="px-4 space-y-4">
-        {/* Health Tip — compact icon strip, rotates each visit */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-amber-50 border border-amber-200">
-          <Lightbulb className="h-4 w-4 text-amber-600 shrink-0" />
-          <p className="text-xs text-amber-800 truncate">{t(tipKey)}</p>
-        </div>
+        {/* Health Tip — tap to expand */}
+        <button
+          type="button"
+          onClick={() => setTipExpanded((v) => !v)}
+          className="w-full flex items-start gap-2 px-3 py-2 rounded-xl bg-muted/50 border border-border text-left"
+        >
+          <Lightbulb className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+          <p className={`text-xs text-foreground ${tipExpanded ? "" : "truncate"}`}>{t(tipKey)}</p>
+        </button>
 
         {/* Quick Actions */}
         <div className="grid grid-cols-4 gap-2">
