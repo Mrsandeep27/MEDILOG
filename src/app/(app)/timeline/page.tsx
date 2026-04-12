@@ -143,36 +143,8 @@ function getEventDotColor(type: EventType, subType: string): string {
   }
 }
 
-function getEventBgColor(type: EventType, subType: string): string {
-  if (type === "symptom") {
-    switch (subType) {
-      case "great":
-      case "good":
-        return "bg-green-50 dark:bg-green-950";
-      case "okay":
-        return "bg-yellow-50 dark:bg-yellow-950";
-      case "bad":
-        return "bg-orange-50 dark:bg-orange-950";
-      case "terrible":
-        return "bg-red-50 dark:bg-red-950";
-      default:
-        return "bg-purple-50 dark:bg-purple-950";
-    }
-  }
-  switch (subType) {
-    case "prescription":
-      return "bg-blue-50 dark:bg-blue-950";
-    case "lab_report":
-      return "bg-indigo-50 dark:bg-indigo-950";
-    case "vaccination":
-      return "bg-emerald-50 dark:bg-emerald-950";
-    case "bill":
-      return "bg-amber-50 dark:bg-amber-950";
-    case "discharge_summary":
-      return "bg-rose-50 dark:bg-rose-950";
-    default:
-      return "bg-slate-50 dark:bg-slate-950";
-  }
+function getEventBgColor(): string {
+  return "bg-muted/40";
 }
 
 function getTypeBadgeVariant(type: EventType): "default" | "secondary" | "outline" {
@@ -426,7 +398,7 @@ export default function TimelinePage() {
                           ? getRecordIcon(event.subType)
                           : getMoodIcon(event.subType);
                       const dotColor = getEventDotColor(event.type, event.subType);
-                      const bgColor = getEventBgColor(event.type, event.subType);
+                      const bgColor = getEventBgColor();
 
                       return (
                         <div key={event.id} className="relative">
