@@ -245,6 +245,9 @@ export default function HomePage() {
           })}
         </div>
 
+        {/* Weekly Summary */}
+        <WeeklySummary />
+
         {/* All Tools — expandable */}
         <section>
           <button
@@ -292,9 +295,6 @@ export default function HomePage() {
             </div>
           )}
         </section>
-
-        {/* Weekly Summary */}
-        <WeeklySummary />
 
         {/* ABHA Banner — coming soon (ABDM sandbox onboarding in progress) */}
         <Link href="/abha">
